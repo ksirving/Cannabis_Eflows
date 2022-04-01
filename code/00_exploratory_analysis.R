@@ -15,7 +15,10 @@ out.dir <- "/Users/katieirving/Documents/Documents - Katie’s MacBook Pro/git/C
 
 ## physical data
 load(file = "input_data/SMC_phab_north_coast.csv")
+
 head(phab_1)
+
+write.csv(phab_1, "input_data/SMC_phab_north_coast2.csv")
 
 unique(phab_1$sampledate) ## 2000-2009???
 unique(phab_1$masterid) ## 185
@@ -24,7 +27,19 @@ unique(phab_1$masterid) ## 185
 load(file = "input_data/SMC_bmi_north_coast.csv") ## bug_tax_1
 load(file = "input_data/SMC_algae_north_coast.csv") ## alg_tax_1
 load(file = "input_data/SMC_cap_prob_north_coast.csv") ## oe_1
+head(bug_tax_1)
 
+bug_sites <- bug_tax_1 %>%
+  select("masterid",  "latitude", "longitude", "county") %>%
+  distinct()
+
+write.csv(bug_sites, "output_data/00_bug_sites_all.csv")
+
+algae_sites <- alg_tax_1 %>%
+  select("masterid",  "latitude", "longitude", "county") %>%
+  distinct()
+
+write.csv(algae_sites, "output_data/00_algae_sites_all.csv")
 
 # Missingness -------------------------------------------------------------
 
@@ -72,9 +87,9 @@ mis <- ggplot_missing(phabWide)
 mis
 
 file.name1 <- paste0(out.dir, "00_NorthCoast_Phab_missingness.jpg")
-ggsave(mis, filename=file.name1, dpi=300, height=5, width=6)
+ggsave(mis, filename=file.name1, dpi=600, height=5, width=6)
 
-
+citation()
 # Bugs --------------------------------------------------------------------
 
 # library(devtools)
@@ -102,6 +117,9 @@ sum(species$FinalID %in% mydf$Genus) ## 42110
 species_traits <- full_join(species, traits, by="FinalID")
 
 head(species_traits)
+
+length(unique(species_traits$masterid))
+
 names(species_traits)
 
 ## only relevant columns and remove duplicates
