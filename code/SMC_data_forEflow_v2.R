@@ -11,7 +11,9 @@
 
 # Note: we discovered some physical habitat data gaps in the SMC database
 # so for now, decided to do a manual data download from CEDEN website as database is still being updated
-# will phab data from local location
+# website:
+# https://ceden.waterboards.ca.gov/AdvancedQueryTool
+# will then import that phab data from local location
 
 
 #### LOAD LIBRARIES, CONNECT TO SMC DATABASE ####
