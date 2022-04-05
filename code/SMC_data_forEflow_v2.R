@@ -9,6 +9,11 @@
 # phab data (flow/sediment related metrics)
 # channel engineering (natural or engineerged channel type)
 
+# Note: we discovered some physical habitat data gaps in the SMC database
+# so for now, decided to do a manual data download from CEDEN website as database is still being updated
+# will phab data from local location
+
+
 #### LOAD LIBRARIES, CONNECT TO SMC DATABASE ####
 
 # libraries for data wrangling
@@ -188,7 +193,35 @@ phab_example <- tbl(con, sql(phab_sql_ex)) %>%
 # names(phab_example)
 
 
+# ----------------------------------------- PHYSICAL HABITAT DATA, STATIC ---------------------------------------
 
+# importing California-wide phab dataset from local location, originally queried from CEDEN website
+# using same list of analyte names as before
+# can eventually update above phab database query, but while there are still datagaps use this file instead
+
+# import from text file, tab separated
+phab_raw <- read_tsv("A:/Katie/Cannabis_Eflows/ceden_data_retrieval_202233116121.txt")
+
+# also import lu stations, so can add latitude/longitude/masterid/huc/county info
+lu_stations <- tbl(con, sql("SELECT masterid, stationid, latitude, longitude, county, huc from lu_stations")) %>%
+  as_tibble()
+
+
+phab_2 <- phab_raw %>% 
+  rename_all(tolower) %>% 
+  select(stationcode, sampledate, sampleagency, targetlatitude, targetlongitude, collectionmethodname, collectionreplicate,
+         methodname, analyte, unit, result, variableresult, resultqualcode, qacode) %>% 
+  # conforming names so match names of columns from database
+  rename(sampleagencycode = sampleagency, collectionmethodcode = collectionmethodname, replicate = collectionreplicate,
+         analytename = analyte, unitname = unit, resqualcode = resultqualcode) %>% 
+  # getting masterids/lat/long/county/huc used in smc database, inner join so only retain sites with masterid
+  inner_join(lu_stations, by = c("stationcode" = "stationid")) %>% 
+  select(masterid, latitude, longitude, county, huc,  sampledate, sampleagencycode, targetlatitude, targetlongitude, collectionmethodcode,
+         replicate,
+         methodname, analytename, unitname, result, variableresult, resqualcode, qacode)
+
+
+# save(phab_2, file="/Users/katieirving/Documents/Documents - Katie’s MacBook Pro/Projects/Cannabis/Methods/data/SMC_phab_ca.csv")
 
 # ----------------------------------------- CHANNEL ENGINEERING DATA ---------------------------------------
 
