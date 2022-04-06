@@ -11,7 +11,6 @@ library(tidylog)
 # compare curves or check where points are
 
 
-
 # Raw data for curves -----------------------------------------------------
 
 asci <- read.csv("input_data/00_asci_delta_formatted_median_Nov2021.csv")
