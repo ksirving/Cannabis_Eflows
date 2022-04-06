@@ -15,7 +15,7 @@
 # https://ceden.waterboards.ca.gov/AdvancedQueryTool
 # will then import that phab data from local location
 
-
+getwd()
 #### LOAD LIBRARIES, CONNECT TO SMC DATABASE ####
 
 # libraries for data wrangling
@@ -89,7 +89,7 @@ INNER JOIN unified_taxonomy ON lu_stations.stationid = unified_taxonomy.stationc
 bug_tax_ca <- tbl(con, sql(bug_tax_sql_ca)) %>% 
   as_tibble() 
 
-# save(bug_tax_ca, file="/Users/katieirving/Documents/Documents - Katie’s MacBook Pro/Projects/Cannabis/Methods/data/SMC_bmi_cali.csv")
+save(bug_tax_ca, file="input_data/SMC_bmi_cali.csv")
 
 
 # ----------------------------------------- BUG capture prob DATA ---------------------------------------
@@ -128,7 +128,7 @@ oe_ca <- tbl(con, sql(oe_sql_ca)) %>%
   as_tibble() 
 
 
-# save(oe_ca, file="/Users/katieirving/Documents/Documents - Katie’s MacBook Pro/Projects/Cannabis/Methods/data/SMC_cap_prob_cali.csv")
+save(oe_ca, file="input_data/SMC_cap_prob_cali.csv")
 
 
 # ----------------------------------------- ALGAE TAXONOMY DATA ---------------------------------------
@@ -173,7 +173,7 @@ INNER JOIN unified_algae ON lu_stations.stationid = unified_algae.stationcode")
 alg_tax_ca <- tbl(con, sql(alg_tax_sql_ca)) %>% 
   as_tibble()
 
-# save(alg_tax_ca, file="/Users/katieirving/Documents/Documents - Katie’s MacBook Pro/Projects/Cannabis/Methods/data/SMC_algae_cali.csv")
+save(alg_tax_ca, file="input_data/SMC_algae_cali.csv")
 
 
 
@@ -246,7 +246,7 @@ alg_tax_ca <- tbl(con, sql(alg_tax_sql_ca)) %>%
 # can eventually update above phab database query, but while there are still datagaps use this file instead
 
 # import from text file, tab separated
-phab_raw_ca <- read_tsv("A:/Katie/Cannabis_Eflows/ceden_data_retrieval_202233116121.txt")
+phab_raw_ca <- read_tsv("/Users/katieirving/Documents/Documents - Katie’s MacBook Pro/git/Cannabis_Eflows/input_data/ceden_data_retrieval_202233116121.txt")
 
 # also import lu stations, so can add latitude/longitude/masterid/huc/county info
 lu_stations <- tbl(con, sql("SELECT masterid, stationid, latitude, longitude, county, huc from lu_stations")) %>%
@@ -267,7 +267,7 @@ phab_ca <- phab_raw_ca %>%
          methodname, analytename, unitname, result, variableresult, resqualcode, qacode)
 
 
-# save(phab_ca, file="/Users/katieirving/Documents/Documents - Katie’s MacBook Pro/Projects/Cannabis/Methods/data/SMC_phab_cali.csv")
+save(phab_ca, file="input_data/SMC_phab_cali.csv")
 
 # ----------------------------------------- CHANNEL ENGINEERING DATA ---------------------------------------
 
@@ -286,9 +286,11 @@ INNER JOIN unified_channelengineering ON lu_stations.stationid = unified_channel
 chaneng_1 <- tbl(con, sql(chaneng_sql)) %>% 
   as_tibble()
 
+
+save(chaneng_1, file="input_data/SMC_channel_eng_cali.csv")
 # again, if want to see full example dataset without the filters
 chaneng_sql_ex <- paste0("SELECT * FROM unified_channelengineering WHERE stationcode = 'SMC00027'")
 chaneng_example <- tbl(con, sql(chaneng_sql_ex)) %>%
   as_tibble()
 # names(chaneng_example)
-
+chaneng_example

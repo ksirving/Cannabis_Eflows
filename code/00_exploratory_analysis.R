@@ -14,28 +14,28 @@ library(tidylog)
 out.dir <- "/Users/katieirving/Documents/Documents - Katie’s MacBook Pro/git/Cannabis_Eflows/figures"
 
 ## physical data
-load(file = "input_data/SMC_phab_north_coast.csv")
+load(file = "input_data/SMC_phab_cali.csv")
 
-head(phab_1)
+head(phab_ca)
 
-write.csv(phab_1, "input_data/SMC_phab_north_coast2.csv")
+# write.csv(phab_1, "input_data/SMC_phab_north_coast2.csv")
 
-unique(phab_1$sampledate) ## 2000-2009???
-unique(phab_1$masterid) ## 185
+unique(phab_ca$sampledate) ## 2000-2009???
+unique(phab_ca$masterid) ## 185
 
 ## bio data
-load(file = "input_data/SMC_bmi_north_coast.csv") ## bug_tax_1
-load(file = "input_data/SMC_algae_north_coast.csv") ## alg_tax_1
-load(file = "input_data/SMC_cap_prob_north_coast.csv") ## oe_1
-head(bug_tax_1)
+load(file = "input_data/SMC_bmi_cali.csv") ## bug_tax_ca
+load(file = "input_data/SMC_algae_cali.csv") ## alg_tax_ca
+load(file = "input_data/SMC_cap_prob_cali.csv") ## oe_ca
+head(bug_tax_ca)
 
-bug_sites <- bug_tax_1 %>%
+bug_sites <- bug_tax_ca %>%
   select("masterid",  "latitude", "longitude", "county") %>%
   distinct()
 
 write.csv(bug_sites, "output_data/00_bug_sites_all.csv")
 
-algae_sites <- alg_tax_1 %>%
+algae_sites <- alg_tax_ca %>%
   select("masterid",  "latitude", "longitude", "county") %>%
   distinct()
 
@@ -44,26 +44,32 @@ write.csv(algae_sites, "output_data/00_algae_sites_all.csv")
 # Missingness -------------------------------------------------------------
 
 ## physical data only
-head(phab_1)
+head(phab_ca)
 
+length(unique(phab_ca$masterid))
+length(unique(phab_ca$sampledate))
 ## make wide
 
-names(phab_1)
+names(phab_ca)
 
 #ID01 = data.table::rleid(result)
-
-phabWide <- phab_1 %>%
-  select( masterid, latitude, longitude, analytename, result, sampledate) %>%
-  group_by(masterid,  sampledate, analytename) %>%
+?distinct
+phabWide <- phab_ca %>%
+  select(masterid, latitude, longitude, analytename, sampledate,result) %>%
+  group_by(masterid, analytename) %>%
   mutate(TransectNum =  row_number()) %>%
-  pivot_wider(names_from = "analytename", values_from = "result") %>%
+  pivot_wider(names_from = "analytename", values_from = "result")# %>%
+  
+phabWideMis <- phabWide %>%
   ungroup() %>%
-  select(-c(masterid, latitude, longitude,sampledate, TransectNum))
+    select(-c(masterid, latitude, longitude,sampledate, TransectNum))
 
+  head(phabWide)
+  
 library(Amelia)
 library(reshape2)
 
-missmap(phabWide)
+missmap(phabWideMis)
 
 ggplot_missing <- function(x){
   
@@ -75,18 +81,18 @@ ggplot_missing <- function(x){
                y = Var1)) +
     geom_raster(aes(fill = value)) +
     scale_fill_grey(name = "",
-                    labels = c("Present (8%)","Missing (92%)")) +
+                    labels = c("Present (4%)","Missing (96%)")) +
     theme_minimal() + 
     theme(axis.text.x  = element_text(angle=45, vjust=1, hjust = 1)) + #vjust=0.5
-    labs(title = "North Coast PHAB missingness",x = "Variables",
+    labs(title = "California PHAB missingness",x = "Variables",
          y = "Observations")
 }
 
-mis <- ggplot_missing(phabWide)
+mis <- ggplot_missing(phabWideMis)
 
 mis
 
-file.name1 <- paste0(out.dir, "00_NorthCoast_Phab_missingness.jpg")
+file.name1 <- paste0(out.dir, "00_Cali_Phab_missingness.jpg")
 ggsave(mis, filename=file.name1, dpi=600, height=5, width=6)
 
 citation()
@@ -104,14 +110,14 @@ head(mydf)
 traits <- mydf %>%
   select(FinalID:Subphylum, Invasive, Source)
 
-head(bug_tax_1)
+head(bug_tax_ca)
 head(traits)
 
 ## rename to match
-species <- bug_tax_1 %>%
+species <- bug_tax_ca %>%
   rename(FinalID = finalid)
 
-sum(species$FinalID %in% mydf$Genus) ## 42110
+sum(species$FinalID %in% mydf$Genus) ## 370704
 
 ## join taxa and traits 
 species_traits <- full_join(species, traits, by="FinalID")
@@ -129,24 +135,62 @@ species_traits <- species_traits %>%
 ## 76,858 rows remaining
 
 ## join to phab data
-unique(phab_1$analytename)
+unique(phab_ca$analytename)
 ## metrics with least missing data
 metrics <- c("Slope", "Embeddedness", "Substrate Size Class", "Wetted Width",  "Bank Angle" )
 
-phab <- phab_1 %>%
+phab <- phab_ca %>%
   select( masterid, analytename, result, sampledate) %>%
   filter(analytename %in% metrics) %>%
   group_by(masterid,  sampledate, analytename) %>%
   mutate(TransectNum =  row_number()) #%>%
   # pivot_wider(names_from = "analytename", values_from = "result")
 
-sum(unique(phab$masterid) %in% unique(species_traits$masterid)) ## 173
+sum(unique(phab$masterid) %in% unique(species_traits$masterid)) ## 3224
 
 bio_phab <- full_join(species_traits,phab, by=c("masterid", "sampledate"))
 
 head(bio_phab)
-
+dim(bio_phab)
+length(unique(bio_phab$masterid)) ## 5979
 
 # Capture probability -----------------------------------------------------
+load("input_data/SMC_cap_prob_cali.csv")
 
-head(oe_1)
+head(oe_ca1)
+
+sum(unique(oe_ca$otu) %in% unique(bio_phab$FinalID)) ## 328
+length(unique(oe_ca$masterid)) ## 4305
+
+## get data column from sample id: first separate sampleid
+oe_ca1 <- oe_ca %>%
+  rename(FinalID = otu) %>%
+  separate(sampleid, into= c("site", "date"),extra = "drop", sep= "_") %>%
+  separate(date, into = c("M1", "M2", "D1", "D2", "Y1", "Y2", "Y3", "Y4")) %>%
+  unite(M1:M2, "Month")
+
+
+oe_ca2 <- oe_ca1 %>%
+  mutate(sampledate = as.factor(date)) 
+?unite
+str(oe_ca2)
+
+## format date time
+oe_ca2$sampledate<-as.POSIXct(oe_ca2$sampledate,
+                              format = "%Y-%m-%d %H:%M",
+                              tz = "GMT")
+  
+as.Date(oe_ca2$sampledate)
+
+
+head(oe_ca1)
+
+?separate
+
+## match bio data with cap prob
+bio_phab_cap <- full_join(bio_phab, oe_ca, by=c("masterid", "sampledate", "latitude", "longitude"))  
+
+
+
+
+

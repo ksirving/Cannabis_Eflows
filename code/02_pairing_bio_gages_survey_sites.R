@@ -484,16 +484,14 @@ coms_list[[200]] # should list feature source and featureID
 
 library(beepr)
 library(data.table)
-library(purrr)
-install.packages("purrr")
-devtools::install_github("JorisChau/rrapply")
-library(rrapply)
+
 
 # Get upstream mainstem streamlines (10 km limit) from gages
 mainstemsUS <- map(coms_list, ~navigate_nldi(nldi_feature = .x, 
                                              mode="UM", # upstream main 
-                                             distance_km = 10))
-
+                                             distance_km = 1))
+?as.lts
+?navigate_nldi
 
 # transform the sf layer to match mainstems crs (4326)
 nc_fin_h12 <- nc_fin_h12 %>% st_transform(4326)
@@ -503,6 +501,17 @@ mainstems_flat_us <- mainstemsUS %>%
   set_names(., nc_fin_h12$siteID) %>%
   map2(nc_fin_h12$siteID, ~mutate(.x, siteID =.y))
 
+nc_fin_h12$siteID
+mainstems_flat_us
+
+# make a single flat layer
+mainstems_flat_us <- mainstemsUS %>%
+  set_names(., nc_fin_h12$siteID) %>%
+  map2(mainstemsUS, nc_fin_h12$siteID, ~mutate(.x, siteID =.y))
+
+head(mainstems_flat_us)
+length(nc_fin_h12$siteID)
+length(mainstemsUS)
 
 # bind together
 mainstems_us <- sf::st_as_sf(data.table::rbindlist(mainstems_flat_us, use.names = TRUE, fill = TRUE))
