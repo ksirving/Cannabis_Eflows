@@ -335,6 +335,12 @@ bugs_cal_gages_h12_bug_cds <- bugs_cal_gages_h12 %>%
 all_bugs_gages_huc <- bind_rows(bugs_gages_h12_bug_cds, bugs_cal_gages_h12_bug_cds)
 all_bugs_gages_huc <- distinct(all_bugs_gages_huc)
 
+
+# number of unique?
+length(unique(factor(all_bugs_gages_huc$HUC_12))) # h12=108
+length(unique(all_bugs_gages_huc$masterid)) # bug sites = 306
+length(unique(all_bugs_gages_huc$geometry)) # gages = 149
+
 ####### Algae
 algae_gages_h12 <- left_join(all_gages_h12, all_algae_h12_df, by = "HUC_12") %>% 
   distinct() %>% filter(!is.na(masterid))
@@ -366,6 +372,11 @@ algae_cal_gages_h12_algae_cds <- algae_cal_gages_h12 %>%
 all_algae_gages_h12 <- bind_rows(algae_cal_gages_h12_algae_cds, algae_gages_h12_algae_cds)
 all_algae_gages_h12 <- distinct(all_algae_gages_h12)
 
+# number of unique?
+length(unique(factor(all_algae_gages_h12$HUC_12))) # h12=74
+length(unique(all_algae_gages_h12$masterid)) # bug sites = 129
+length(unique(all_algae_gages_h12$geometry)) # gages = 29
+
 
 ## gages with Bio
 
@@ -375,7 +386,7 @@ Gages_sel_cal <- c(unique(algae_cal_gages_h12$Name),
 Gages_sel_loc <- c(unique(algae_gages_h12$Name),
                    unique(bugs_gages_h12$Name))
 
-length(Gages_sel_loc)
+length(Gages_sel_loc) ## 259
 
 all_gages_h12
 
@@ -390,6 +401,8 @@ all_cal_gages_h12_sel <- all_cal_gages_h12 %>%
   filter(Name %in% Gages_sel_cal)
 
 head(all_cal_gages_h12_sel)
+dim(all_cal_gages_h12_sel) ## 157
+dim(all_gages_h12_sel)
 
 write.csv(all_gages_h12_sel, "output_data/02_bio_gages_same_huc.csv")
 write.csv(all_cal_gages_h12_sel, "output_data/02_bio_cal_gages_same_huc.csv")
@@ -401,7 +414,7 @@ HUCs_sel <- c(unique(algae_cal_gages_h12$HUC_12),
               unique(bugs_cal_gages_h12$HUC_12),
               unique(bugs_gages_h12$HUC_12))
 
-length(unique(HUCs_sel)) ## 228
+length(unique(HUCs_sel)) ## 108
 
 h12 <- h12 %>%
   filter(HUC_12 %in% HUCs_sel)
@@ -419,8 +432,15 @@ nc_h12
 head(nc_fin)
 dim(nc_fin)
 
-nc_fin_h12 <- st_join(nc_fin,left = TRUE, h12[c("HUC_12")])
+nc_fin_h12 <- st_join(nc_fin, left = TRUE, h12[c("HUC_12")])
 sum(is.na(nc_fin_h12$HUC_12)) ## 82 Nas
+
+nc_fin_h12 <- na.omit(nc_fin_h12)
+
+
+nc_fin_h12
+
+length(unique(nc_fin_h12$siteID))
 
 # set background basemaps:
 basemapsList <- c("Esri.WorldTopoMap", "Esri.WorldImagery",
@@ -484,6 +504,25 @@ coms_list[[200]] # should list feature source and featureID
 
 library(beepr)
 library(data.table)
+
+
+# Get upstream mainstem streamlines (10 km limit) from gages - new code
+# coms_list can be a dataframe (then may need to change `coms_list` to `coms_list$comid` or just a list of comids. 
+mainstemsUS <- map(coms_list, ~navigate_nldi(nldi_feature = .x,
+                                             mode="UM", # upstream main
+                                             distance_km = 10))
+# check length (for NAs?)
+mainstemsUS %>%
+  purrr::map_lgl(~ length(.x)>1) %>% table()
+
+# drop NA/empty elements
+mainstemsUS_c <- mainstemsUS %>% purrr::compact()
+
+# make a single flat layer
+# this accesses each item in our list of items...nhdplus returns a list of 2 dataframes that include $UM_flowlines, $origin. 
+# the name UM_flowlines can change depending on the "mode" above (may be DS or DD_flowlines).
+
+mainstems_flat_us <- map_df(mainstemsUS_c, ~mutate(.x$UM_flowlines, comid_origin=.x$origin$comid, .after=nhdplus_comid))
 
 
 # Get upstream mainstem streamlines (10 km limit) from gages
