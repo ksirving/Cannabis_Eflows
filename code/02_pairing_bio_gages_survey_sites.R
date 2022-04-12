@@ -56,7 +56,7 @@ nc_fin <- st_read("ignore/Web_GIS_Cannabis/North Coast/regional datasets/geodata
 load("input_data/huc12_sf.rda") ## h12
 
 # Format data -------------------------------------------------------------
-TU
+
 ## add file name as identifier
 TU <- TU %>%
   mutate(Filename = "TU_Gages_SWRCB.shp", ID = 1:length(geometry)) %>%
@@ -133,18 +133,21 @@ write_rds(all_gages, "output_data/02_all_gages_combined.rds")
 library(nhdplusTools)
 #  
 class(bugs)
+st_crs(bugs)
 
 # Create dataframe for looking up COMIDS (here use all stations)
 bug_segs <- bugs %>%
   dplyr::select(masterid, longitude, latitude) %>%
   distinct(masterid, longitude, latitude) %>% 
-  st_as_sf(coords=c("longitude", "latitude"), crs=3310, remove=F)
+  st_as_sf(coords=c("longitude", "latitude"), crs=4326, remove=F)
 
 # use nhdtools to get comids
 bug_all_coms <- bug_segs %>%
   group_split(masterid) %>%
   set_names(., bug_segs$masterid) %>%
   map(~discover_nhdplus_id(.x$geometry))
+
+bug_all_coms
 
 # flatten into single dataframe instead of list
 bug_segs_df <-bug_all_coms %>% flatten_dfc() %>% t() %>%
@@ -157,13 +160,17 @@ bugs <- full_join(bugs, bug_segs_df, by = "masterid")
 algae_segs <- algae %>%
   dplyr::select(masterid, longitude, latitude) %>%
   distinct(masterid, longitude, latitude) %>% 
-  st_as_sf(coords=c("longitude", "latitude"), crs=3310, remove=F)
+  st_as_sf(coords=c("longitude", "latitude"),  crs=4326, remove=F)
 
 # use nhdtools to get comids
 algae_all_coms <- algae_segs %>%
   group_split(masterid) %>%
   set_names(., algae_segs$masterid) %>%
   map(~discover_nhdplus_id(.x$geometry))
+
+algae_all_coms
+
+# ?discover_nhdplus_id
 
 # flatten into single dataframe instead of list
 algae_segs_df <-algae_all_coms %>% flatten_dfc() %>% t() %>%
@@ -174,13 +181,14 @@ algae <- full_join(algae, algae_segs_df, by =  "masterid")
 
 ## gages
 st_crs(all_gages)
+head(all_gages)
 
 # Create dataframe for looking up COMIDS (here use all stations)
 gage_segs <- all_gages %>%
   dplyr::select(ID, gagelong, gagelat) %>%
   distinct(ID, gagelong, gagelat) %>% as.data.frame() %>% 
   rename(latitude = gagelat, longitude = gagelong) %>%
-  st_as_sf(coords=c("longitude", "latitude"), crs=3310, remove=F)
+  st_as_sf(coords=c("longitude", "latitude"),  crs=4326, remove=F)
 
 gage_segs
 
@@ -190,6 +198,8 @@ gage_all_coms <- gage_segs %>%
   set_names(., gage_segs$ID) %>%
   map(~discover_nhdplus_id(.x$geometry))
 
+gage_all_coms
+
 # flatten into single dataframe instead of list
 gage_segs_df <-gage_all_coms %>% flatten_dfc() %>% t() %>%
   as.data.frame() %>%
@@ -197,27 +207,27 @@ gage_segs_df <-gage_all_coms %>% flatten_dfc() %>% t() %>%
 
 all_gages <- full_join(all_gages, gage_segs_df, by =  "ID")
 
-## cal gages
-cal
-# Create dataframe for looking up COMIDS (here use all stations)
-cal_segs <- cal %>%
-  dplyr::select(ID, gagelong, gagelat) %>%
-  distinct(ID, gagelong, gagelat) %>% 
-  rename(latitude = gagelat, longitude = gagelong) %>%
-  st_as_sf(coords=c("longitude", "latitude"), crs=3310, remove=F)
+## cal gages - doesn't work but hs COMIDs - i think, will check
 
-# use nhdtools to get comids
-cal_all_coms <- cal_segs %>%
-  group_split(ID) %>%
-  set_names(., cal_segs$ID) %>%
-  map(~discover_nhdplus_id(.x$geometry))
+# # Create dataframe for looking up COMIDS (here use all stations)
+# cal_segs <- cal %>%
+#   dplyr::select(ID, gagelong, gagelat) %>%
+#   distinct(ID, gagelong, gagelat) %>% 
+#   rename(latitude = gagelat, longitude = gagelong) %>%
+#   st_as_sf(coords=c("longitude", "latitude"), crs=3310, remove=F)
+# 
+# # use nhdtools to get comids - doesn't work here!!!!
+# cal_all_coms <- cal_segs %>%
+#   group_split(ID) %>%
+#   set_names(., cal_segs$ID) %>%
+#   map(~discover_nhdplus_id(.x$geometry))
+# 
+# # flatten into single dataframe instead of list
+# cal_segs_df <-cal_all_coms %>% flatten_dfc() %>% t() %>%
+#   as.data.frame() %>%
+#   rename("COMID"=V1) %>% rownames_to_column(var = "ID")
 
-# flatten into single dataframe instead of list
-cal_segs_df <-cal_all_coms %>% flatten_dfc() %>% t() %>%
-  as.data.frame() %>%
-  rename("COMID"=V1) %>% rownames_to_column(var = "ID")
-
-cal <- full_join(cal, cal_segs_df, by =  "ID")
+# cal <- full_join(cal, cal_segs_df, by =  "ID")
 
 ## transect suveys
 nc_fin
@@ -226,13 +236,15 @@ nc_segs <- nc_fin %>%
   dplyr::select(siteID, LONGITUDE, LATITUDE) %>%
   distinct(siteID, LONGITUDE, LATITUDE) %>% 
   rename(latitude = LATITUDE, longitude = LONGITUDE) %>%
-  st_as_sf(coords=c("longitude", "latitude"), crs=3310, remove=F)
+  st_as_sf(coords=c("longitude", "latitude"),  crs=4326, remove=F)
 
 # use nhdtools to get comids
 nc_all_coms <- nc_segs %>%
   group_split(siteID) %>%
   set_names(., nc_segs$siteID) %>%
   map(~discover_nhdplus_id(.x$geometry))
+
+nc_all_coms
 
 # flatten into single dataframe instead of list
 nc_segs_df <-nc_all_coms %>% flatten_dfc() %>% t() %>%
@@ -266,6 +278,7 @@ st_crs(nc_fin) == st_crs(h12)
 
 #### bio
 all_bugs_h12
+bugs
 all_bugs_h12 <- st_join(bugs,left = TRUE, h12[c("HUC_12")])
 all_algae_h12 <- st_join(algae,left = TRUE, h12[c("HUC_12")])
 
@@ -301,58 +314,62 @@ all_algae_h12_df <- as.data.frame(all_algae_h12) %>% select(-geometry)
 
 # now join based on H12: what  stations share same H12 as gage?
 
-########### bugs 
+########### bugs and local gages with same H12 - both coords for bugs and gages included
 bugs_gages_h12 <- left_join(all_gages_h12, all_bugs_h12_df, by = "HUC_12") %>% 
   distinct() %>% filter(!is.na(masterid))
+head(bugs_gages_h12)
 
-class(bugs_gages_h12_bug_cds)
-head(bugs_gages_h12_bug_cds)
-  
 # number of unique?
 length(unique(factor(bugs_gages_h12$HUC_12))) # h12=47
 length(unique(bugs_gages_h12$masterid)) # bug sites = 158
-length(unique(bugs_gages_h12$Name)) # gages = 149
+length(unique(bugs_gages_h12$ID)) # gages = 199
 
-## sf object with only coords for bugs - bug layer1
+## sf object with only coords for bugs - bug layer1 (i.e. change geometry to bug site)
 bugs_gages_h12_bug_cds <- bugs_gages_h12 %>%
-  select(HUC_12:county) %>% as.data.frame() %>% select(-geometry) %>% 
+  select(ID,HUC_12:county) %>% as.data.frame() %>% select(-geometry) %>% 
   st_as_sf(coords=c("longitude", "latitude"), crs=4326, remove=F)
 
-bugs_cal_gages_h12
+class(bugs_gages_h12_bug_cds)
+head(bugs_gages_h12_bug_cds)
+
+## same for california gages
 bugs_cal_gages_h12 <- left_join(all_cal_gages_h12, all_bugs_h12_df, by = "HUC_12") %>% 
   distinct() %>%  filter(!is.na(masterid))
+bugs_cal_gages_h12
 
 # number of unique?
 length(unique(factor(bugs_cal_gages_h12$HUC_12))) # h12= 90
 length(unique(bugs_cal_gages_h12$masterid)) # bug sites = 252
-length(unique(bugs_cal_gages_h12$Name)) # gages = 157
+length(unique(bugs_cal_gages_h12$ID)) # gages = 157
 
-## sf object with only coords for bugs - bug layer2
+## sf object with only coords for bugs - bug layer2 (i.e. change geometry to bug site)
 bugs_cal_gages_h12_bug_cds <- bugs_cal_gages_h12 %>%
-  select(HUC_12:county) %>% as.data.frame() %>% select(-geometry) %>% 
+  select(ID,HUC_12:county) %>% as.data.frame() %>% select(-geometry) %>% 
   st_as_sf(coords=c("longitude", "latitude"), crs=4326, remove=F)
 
+head(bugs_cal_gages_h12_bug_cds)
+## join both bug layers together for all bug sites in same HUC as one gage
 all_bugs_gages_huc <- bind_rows(bugs_gages_h12_bug_cds, bugs_cal_gages_h12_bug_cds)
 all_bugs_gages_huc <- distinct(all_bugs_gages_huc)
 
-
+head(all_bugs_gages_huc)
 # number of unique?
 length(unique(factor(all_bugs_gages_huc$HUC_12))) # h12=108
 length(unique(all_bugs_gages_huc$masterid)) # bug sites = 306
-length(unique(all_bugs_gages_huc$geometry)) # gages = 149
+length(unique(all_bugs_gages_huc$ID)) # gages = 356
 
 ####### Algae
 algae_gages_h12 <- left_join(all_gages_h12, all_algae_h12_df, by = "HUC_12") %>% 
   distinct() %>% filter(!is.na(masterid))
 
 # number of unique?
-length(unique(factor(algae_gages_h12$HUC_12))) # h12=39
+length(unique(factor(algae_gages_h12$HUC_12))) # h12=29
 length(unique(algae_gages_h12$masterid)) # bug sites = 39
-length(unique(algae_gages_h12$Name)) # gages = 110
+length(unique(algae_gages_h12$ID)) # gages = 145
 
 ## sf object with only coords for algae - algae layer1
 algae_gages_h12_algae_cds <- algae_gages_h12 %>%
-  select(HUC_12:county) %>% as.data.frame() %>% select(-geometry) %>% 
+  select(ID, HUC_12:county) %>% as.data.frame() %>% select(-geometry) %>% 
   st_as_sf(coords=c("longitude", "latitude"), crs=4326, remove=F)
 
 
@@ -362,11 +379,11 @@ algae_cal_gages_h12 <- left_join(all_cal_gages_h12, all_algae_h12_df, by = "HUC_
 # number of unique?
 length(unique(factor(algae_cal_gages_h12$HUC_12))) # h12= 62
 length(unique(algae_cal_gages_h12$masterid)) # bug sites = 114
-length(unique(algae_cal_gages_h12$Name)) # gages = 108
+length(unique(algae_cal_gages_h12$ID)) # gages = 108
 
 ## sf object with only coords for algae - algae layer1
 algae_cal_gages_h12_algae_cds <- algae_cal_gages_h12 %>%
-  select(HUC_12:county) %>% as.data.frame() %>% select(-geometry) %>% 
+  select(ID, HUC_12:county) %>% as.data.frame() %>% select(-geometry) %>% 
   st_as_sf(coords=c("longitude", "latitude"), crs=4326, remove=F)
 
 all_algae_gages_h12 <- bind_rows(algae_cal_gages_h12_algae_cds, algae_gages_h12_algae_cds)
@@ -375,34 +392,37 @@ all_algae_gages_h12 <- distinct(all_algae_gages_h12)
 # number of unique?
 length(unique(factor(all_algae_gages_h12$HUC_12))) # h12=74
 length(unique(all_algae_gages_h12$masterid)) # bug sites = 129
-length(unique(all_algae_gages_h12$geometry)) # gages = 29
+length(unique(all_algae_gages_h12$ID)) # gages = 253
 
 
-## gages with Bio
+## gages with Bio - identifier is ID
+head(all_algae_gages_h12)
 
-Gages_sel_cal <- c(unique(algae_cal_gages_h12$Name), 
-               unique(bugs_cal_gages_h12$Name))
+Gages_sel_cal <- c(unique(algae_cal_gages_h12$ID), 
+               unique(bugs_cal_gages_h12$ID))
 
-Gages_sel_loc <- c(unique(algae_gages_h12$Name),
-                   unique(bugs_gages_h12$Name))
+Gages_sel_loc <- c(unique(algae_gages_h12$ID),
+                   unique(bugs_gages_h12$ID))
 
-length(Gages_sel_loc) ## 259
+length(Gages_sel_loc) ## 344
 
 all_gages_h12
 
 ### filter gages to bio sites
 all_gages_h12_sel <- all_gages_h12 %>%
-  filter(Name %in% Gages_sel_loc) %>%
+  filter(ID %in% Gages_sel_loc) %>%
   as.data.frame() %>% select(-geometry) %>% 
   st_as_sf(coords=c("gagelong", "gagelat"), crs=4326, remove=F) %>%
   na.omit()
 
 all_cal_gages_h12_sel <- all_cal_gages_h12 %>%
-  filter(Name %in% Gages_sel_cal)
+  filter(ID %in% Gages_sel_cal)
 
 head(all_cal_gages_h12_sel)
 dim(all_cal_gages_h12_sel) ## 157
-dim(all_gages_h12_sel)
+dim(all_gages_h12_sel) ## 180
+
+class(all_cal_gages_h12_sel)
 
 write.csv(all_gages_h12_sel, "output_data/02_bio_gages_same_huc.csv")
 write.csv(all_cal_gages_h12_sel, "output_data/02_bio_cal_gages_same_huc.csv")
@@ -419,15 +439,9 @@ length(unique(HUCs_sel)) ## 108
 h12 <- h12 %>%
   filter(HUC_12 %in% HUCs_sel)
 
-st_write(h12, "output_data/02_h12_selected.shp",append=FALSE)
-
 ### high res sites
-head(nc)
 
-dim(nc)
-
-nc_h12 <- st_join(nc,left = TRUE, h12[c("HUC_12")])
-nc_h12
+# nc_h12 <- st_join(nc,left = TRUE, h12[c("HUC_12")])
 
 head(nc_fin)
 dim(nc_fin)
@@ -437,9 +451,6 @@ sum(is.na(nc_fin_h12$HUC_12)) ## 82 Nas
 
 nc_fin_h12 <- na.omit(nc_fin_h12)
 
-
-nc_fin_h12
-
 length(unique(nc_fin_h12$siteID))
 
 # set background basemaps:
@@ -448,13 +459,13 @@ basemapsList <- c("Esri.WorldTopoMap", "Esri.WorldImagery",
                   "OpenTopoMap", "OpenStreetMap", 
                   "CartoDB.Positron", "Stamen.TopOSMFeatures")
 
-mapviewOptions(basemaps=basemapsList)
+mapviewOptions(basemaps=basemapsList, fgb = FALSE)
 
 # this map of all sites in same HUC 12
 m1 <- mapview(all_bugs_gages_huc, cex=6, col.regions="orange",
               layer.name="Bugs Stations") +
   mapview(all_cal_gages_h12_sel, col.regions="skyblue", cex=2, color="blue2",
-          layer.name="USGS Gages") + 
+          layer.name="USGS Gages") +
   mapview(all_algae_gages_h12, col.regions="green", cex=6,
           layer.name="Algae Stations") +
   # mapview(algae_gages_h12_algae_cds, col.regions="green", cex=6,
@@ -466,12 +477,20 @@ m1 <- mapview(all_bugs_gages_huc, cex=6, col.regions="orange",
 mapview(all_gages_h12_sel, col.regions="red", cex=2, color="red",
         layer.name="Gages Local") +
   mapview(nc_fin_h12, col.regions="purple", cex=2, color="purple",
-          layer.name="Transect Survey Sites") 
+          layer.name="Transect Survey Sites")
 
-
+m1
 m1@map %>% leaflet::addMeasure(primaryLengthUnit = "meters")
 
+## save all layers
 
+st_write(h12, "output_data/02_h12_selected.shp",append=FALSE) ## h12s with gages and bio
+st_write(all_gages_h12_sel, "output_data/02_local_gages_sites_same_huc_as_bio.shp",append=FALSE) ## local gages 
+st_write(all_cal_gages_h12_sel, "output_data/02_cali_gages_sites_same_huc_as_bio.shp",append=FALSE) ## cali gages
+st_write(all_algae_gages_h12,  "output_data/02_algae_sites_same_huc_as_gages.shp",append=FALSE) ## algae sites
+st_write(all_bugs_gages_huc,  "output_data/02_bug_sites_same_huc_as_gages.shp",append=FALSE) ## bug sites
+st_write(nc_fin_h12,  "output_data/02_transect_surveys_same_huc_as_gages_and_bio.shp",append=FALSE) ## bug sites
+# class(all_algae_gages_h12)
 
 # Overlapping sites -------------------------------------------------------
 
@@ -490,23 +509,21 @@ algae_trans <- st_join(all_algae_gages_h12, nc_fin_h12 )
 all_algae_gages_h12 <- st_transform(all_algae_gages_h12, crs=3310) # use CA Teale albs metric
 all_bug_gages_h12 <- st_transform(all_bugs_gages_huc, crs=3310)
 nc_fin_h12 <- st_transform(nc_fin_h12, crs=3310)
+all_gages_h12_sel <- st_transform(all_gages_h12_sel, crs=3310)
+all_cal_gages_h12_sel <- st_transform(all_cal_gages_h12_sel, crs=3310)
 
 # use a list of comids to make a list to pass to the nhdplusTools function
-
-
-summary(nc_fin_h12$COMID) # survey sites
+# first do gages, then see how many bio sites are on lines, then same with transects 
 
 # Use the surveycom_list
-coms_list <- map(nc_fin_h12$COMID, ~list(featureSource = "COMID", featureID=.x))
+coms_list <- map(all_gages_h12_sel$COMID, ~list(featureSource = "COMID", featureID=.x))
 coms_list
 # check
-coms_list[[200]] # should list feature source and featureID
+coms_list[[100]] # should list feature source and featureID
 
 library(beepr)
 library(data.table)
-
-
-# Get upstream mainstem streamlines (10 km limit) from gages - new code
+# Get upstream mainstem streamlines (10 km limit) from gages
 # coms_list can be a dataframe (then may need to change `coms_list` to `coms_list$comid` or just a list of comids. 
 mainstemsUS <- map(coms_list, ~navigate_nldi(nldi_feature = .x,
                                              mode="UM", # upstream main
@@ -524,46 +541,53 @@ mainstemsUS_c <- mainstemsUS %>% purrr::compact()
 
 mainstems_flat_us <- map_df(mainstemsUS_c, ~mutate(.x$UM_flowlines, comid_origin=.x$origin$comid, .after=nhdplus_comid))
 
+head(mainstems_us)
 
-# Get upstream mainstem streamlines (10 km limit) from gages
-mainstemsUS <- map(coms_list, ~navigate_nldi(nldi_feature = .x, 
-                                             mode="UM", # upstream main 
-                                             distance_km = 1))
-?as.lts
-?navigate_nldi
+length(unique(mainstems_flat_us$nhdplus_comid)) ## 518
+length(unique(mainstems_flat_us$comid_origin)) ## 129
 
-# transform the sf layer to match mainstems crs (4326)
-nc_fin_h12 <- nc_fin_h12 %>% st_transform(4326)
 
-# make a single flat layer
-mainstems_flat_us <- mainstemsUS %>%
-  set_names(., nc_fin_h12$siteID) %>%
-  map2(nc_fin_h12$siteID, ~mutate(.x, siteID =.y))
-
-nc_fin_h12$siteID
-mainstems_flat_us
-
-# make a single flat layer
-mainstems_flat_us <- mainstemsUS %>%
-  set_names(., nc_fin_h12$siteID) %>%
-  map2(mainstemsUS, nc_fin_h12$siteID, ~mutate(.x, siteID =.y))
-
-head(mainstems_flat_us)
-length(nc_fin_h12$siteID)
-length(mainstemsUS)
 
 # bind together
-mainstems_us <- sf::st_as_sf(data.table::rbindlist(mainstems_flat_us, use.names = TRUE, fill = TRUE))
+mainstems_us <- sf::st_as_sf(mainstems_flat_us, use.names = TRUE, fill = TRUE)
 
 # add direction to gage col
 mainstems_us <- mainstems_us %>% 
   mutate(from_gage = "UM")
 
+length(unique(mainstems_us$nhdplus_comid)) ## 518
+length(unique(mainstems_us$comid_origin)) ## 129
+
 # rm temp files
 rm(mainstems_flat_us, mainstemsUS)
 
+# this map of all sites in same HUC 12
+m1 <- mapview(mainstems_us, color = "navyblue") + mapview(all_bugs_gages_huc, cex=6, col.regions="orange",
+              layer.name="Bugs Stations") +
+  mapview(all_cal_gages_h12_sel, col.regions="skyblue", cex=2, color="blue2",
+          layer.name="USGS Gages") + 
+  mapview(all_algae_gages_h12, col.regions="green", cex=6,
+          layer.name="Algae Stations") +
+  # mapview(algae_gages_h12_algae_cds, col.regions="green", cex=6,
+  #         layer.name="Algae Stations Local") +
+  # mapview(bugs_gages_h12_bug_cds, col.regions="orange", cex=6,
+  #         layer.name="Bugs Stations Local") +
+  mapview(h12, col.regions="dodgerblue", alpha.region=0.1,
+          color="darkblue", legend=FALSE, layer.name="HUC12") +
+  mapview(all_gages_h12_sel, col.regions="red", cex=2, color="red",
+          layer.name="Gages Local") +
+  mapview(nc_fin_h12, col.regions="purple", cex=2, color="purple",
+          layer.name="Transect Survey Sites") 
+
+
+m1@map %>% leaflet::addMeasure(primaryLengthUnit = "meters")
+
+
+
 # preview
-mapview(mainstems_us) + 
+mapview(mainstems_us) #+ 
+  mapview(sel_algae_gages_asci, cex=6, col.regions="orange", 
+          layer.name="Selected algae Stations") +  
   mapview(sel_algae_gages_asci, cex=6, col.regions="orange", 
           layer.name="Selected algae Stations") +  
   mapview(sel_gages_algae, col.regions="skyblue", cex=7, color="blue2",
