@@ -395,6 +395,21 @@ length(unique(all_algae_gages_h12$masterid)) # bug sites = 129
 length(unique(all_algae_gages_h12$ID)) # gages = 253
 
 
+## combine all bio sites 
+algae_sites_paired <- all_algae_gages_h12 %>%
+  mutate(Bio ="Algae")
+
+bugs_sites_paired <- all_bugs_gages_huc %>%
+  mutate(Bio ="Bugs")
+
+all_bio_paird <- bind_rows(algae_sites_paired, bugs_sites_paired)
+
+# all_bio_paird %>% 
+#   group_by(Bio, HUC_12) 
+  
+
+
+
 ## gages with Bio - identifier is ID
 head(all_algae_gages_h12)
 
@@ -441,7 +456,9 @@ h12 <- h12 %>%
 
 ### high res sites
 
-# nc_h12 <- st_join(nc,left = TRUE, h12[c("HUC_12")])
+nc_h12 <- st_join(nc,left = TRUE, h12[c("HUC_12")])
+
+nc_h12
 
 head(nc_fin)
 dim(nc_fin)
@@ -479,6 +496,7 @@ mapview(all_gages_h12_sel, col.regions="red", cex=2, color="red",
   mapview(nc_fin_h12, col.regions="purple", cex=2, color="purple",
           layer.name="Transect Survey Sites")
 
+
 m1
 m1@map %>% leaflet::addMeasure(primaryLengthUnit = "meters")
 
@@ -491,6 +509,173 @@ st_write(all_algae_gages_h12,  "output_data/02_algae_sites_same_huc_as_gages.shp
 st_write(all_bugs_gages_huc,  "output_data/02_bug_sites_same_huc_as_gages.shp",append=FALSE) ## bug sites
 st_write(nc_fin_h12,  "output_data/02_transect_surveys_same_huc_as_gages_and_bio.shp",append=FALSE) ## bug sites
 # class(all_algae_gages_h12)
+
+
+# Subset to SFER ----------------------------------------------------------
+
+dim(h12)
+## join all dfs and subset
+
+all_bio_paird ## bugs and algae
+
+length(unique(na.omit(all_bio_paird$HUC_12))) ## 108
+
+al <- all_bio_paird %>% filter(Bio == "Algae") #%>% 
+
+length(unique(al$masterid)) ## 129
+length(unique(al$HUC_12)) ## 129
+
+bg <- all_bio_paird %>% filter(Bio == "Bugs") #%>% 
+
+length(unique(bg$masterid)) ## 306
+length(unique(bg$HUC_12)) ## 306
+
+
+nc_fin_h12 ## tansect surveys
+
+length(unique(na.omit(nc_fin_h12$HUC_12))) ## 19
+length(unique(na.omit(nc_fin_h12$siteID))) ## 119
+
+nc_h12 ## high res
+
+length(unique(na.omit(nc_h12$HUC_12))) ## 3
+length(unique(na.omit(nc_h12$siteID))) ## 7
+
+all_gages_h12_sel ## small gages
+
+length(unique(na.omit(all_gages_h12_sel$HUC_12))) ## 47
+length(unique(na.omit(all_gages_h12_sel$ID))) ## 180
+
+all_cal_gages_h12_sel ## Cali gages
+
+length(unique(na.omit(all_cal_gages_h12_sel$HUC_12))) ## 90
+length(unique(na.omit(all_cal_gages_h12_sel$ID))) ## 157
+
+## all bio HUC have a gage
+
+length(unique(HUCs_sel)) ## 108 all gages
+
+## south fork eel polygon
+sfer <- st_read("ignore/Web_GIS_Cannabis/Belize_Morphology/SouthForkEel.shp")
+
+## change crs to match 
+all_bio_paird <- st_transform(all_bio_paird, crs = 3310)
+
+## join with Bio and count HUCs
+bio_sub <- st_join(sfer, left = TRUE, all_bio_paird)
+bio_sub
+
+length(unique(na.omit(bio_sub$HUC_12))) ## 9
+
+al <- bio_sub %>% filter(Bio == "Algae") #%>% 
+
+length(unique(al$masterid)) ## 11
+length(unique(al$HUC_12)) ## 7
+
+bg <- bio_sub %>% filter(Bio == "Bugs") #%>% 
+
+length(unique(bg$masterid)) ## 20
+length(unique(bg$HUC_12)) ## 9
+
+## join to ggaes
+
+## change crs to match 
+all_gages_h12_sel <- st_transform(all_gages_h12_sel, crs = 3310)
+
+gage_sub <- st_join(sfer, left = TRUE, all_gages_h12_sel)
+gage_sub
+
+ ## small gages
+
+length(unique(na.omit(gage_sub$HUC_12))) ## 8
+length(unique(na.omit(gage_sub$ID))) ## 8
+
+all_cal_gages_h12_sel ## Cali gages
+
+## change crs to match 
+all_cal_gages_h12_sel <- st_transform(all_cal_gages_h12_sel, crs = 3310)
+
+gage_sub2 <- st_join(sfer, left = TRUE, all_cal_gages_h12_sel)
+gage_sub2
+
+length(unique(na.omit(gage_sub2$HUC_12))) ## 3
+length(unique(na.omit(gage_sub2$ID))) ## 5
+
+## change crs to match 
+nc_fin_h12 <- st_transform(nc_fin_h12, crs = 3310)
+
+serv_sub <- st_join(sfer, left = TRUE, nc_fin_h12)
+serv_sub
+
+## small gages
+
+length(unique(na.omit(serv_sub$HUC_12))) ## 8
+length(unique(na.omit(serv_sub$siteID))) ## 8
+
+#### same with north coast
+
+norCoa <- st_read("ignore/Web_GIS_Cannabis/NorthCoast_Border.shp")
+
+## change crs to match 
+all_bio_paird <- st_transform(all_bio_paird, crs = 3310)
+
+## join with Bio and count HUCs
+bio_sub <- st_join(norCoa, left = TRUE, all_bio_paird)
+bio_sub
+
+length(unique(na.omit(bio_sub$HUC_12))) ## 30
+
+al <- bio_sub %>% filter(Bio == "Algae") #%>% 
+
+length(unique(al$masterid)) ## 50
+length(unique(al$HUC_12)) ## 20
+
+bg <- bio_sub %>% filter(Bio == "Bugs") #%>% 
+
+length(unique(bg$masterid)) ## 72
+length(unique(bg$HUC_12)) ## 30
+
+## join to ggaes
+
+## change crs to match 
+all_gages_h12_sel <- st_transform(all_gages_h12_sel, crs = 3310)
+
+gage_sub <- st_join(norCoa, left = TRUE, all_gages_h12_sel)
+gage_sub
+
+## small gages
+
+length(unique(na.omit(gage_sub$HUC_12))) ## 11
+length(unique(na.omit(gage_sub$ID))) ## 11
+
+all_cal_gages_h12_sel ## Cali gages
+
+## change crs to match 
+all_cal_gages_h12_sel <- st_transform(all_cal_gages_h12_sel, crs = 3310)
+
+gage_sub2 <- st_join(norCoa, left = TRUE, all_cal_gages_h12_sel)
+gage_sub2
+
+length(unique(na.omit(gage_sub2$HUC_12))) ## 23
+length(unique(na.omit(gage_sub2$ID))) ## 47
+
+## all gages HUC 
+
+length(c(unique(na.omit(gage_sub$HUC_12)), unique(na.omit(gage_sub2$HUC_12))))
+
+## change crs to match 
+nc_fin_h12 <- st_transform(nc_fin_h12, crs = 3310)
+
+serv_sub <- st_join(norCoa, left = TRUE, nc_fin_h12)
+serv_sub
+
+## small gages
+
+length(unique(na.omit(serv_sub$HUC_12))) ## 8
+length(unique(na.omit(serv_sub$siteID))) ## 8
+
+
+
 
 # Overlapping sites -------------------------------------------------------
 
@@ -505,6 +690,14 @@ algae_trans <- st_join(all_algae_gages_h12, nc_fin_h12 )
 
 # GT UPSTREAM FLOWLINES FROM TRANSECTS ----------------------------------------
 
+h12 <- st_read( "output_data/02_h12_selected.shp") ## h12s with gages and bio
+all_gages_h12_sel <- st_read("output_data/02_local_gages_sites_same_huc_as_bio.shp") ## local gages 
+all_cal_gages_h12_sel <- st_read("output_data/02_cali_gages_sites_same_huc_as_bio.shp") ## cali gages
+all_algae_gages_h12 <- st_read("output_data/02_algae_sites_same_huc_as_gages.shp") ## algae sites
+all_bugs_gages_huc <- st_read("output_data/02_bug_sites_same_huc_as_gages.shp") ## bug sites
+nc_fin_h12 <- st_read("output_data/02_transect_surveys_same_huc_as_gages_and_bio.shp") ## bug sites
+#
+
 ## TRANSFORM TO UTM datum for flowlines
 all_algae_gages_h12 <- st_transform(all_algae_gages_h12, crs=3310) # use CA Teale albs metric
 all_bug_gages_h12 <- st_transform(all_bugs_gages_huc, crs=3310)
@@ -514,15 +707,16 @@ all_cal_gages_h12_sel <- st_transform(all_cal_gages_h12_sel, crs=3310)
 
 # use a list of comids to make a list to pass to the nhdplusTools function
 # first do gages, then see how many bio sites are on lines, then same with transects 
+names(all_gages_h12_sel)
 
-# Use the surveycom_list
+# Use the gage com_list
 coms_list <- map(all_gages_h12_sel$COMID, ~list(featureSource = "COMID", featureID=.x))
+# coms_list <- na.omit(coms_list)
 coms_list
 # check
 coms_list[[100]] # should list feature source and featureID
 
-library(beepr)
-library(data.table)
+
 # Get upstream mainstem streamlines (10 km limit) from gages
 # coms_list can be a dataframe (then may need to change `coms_list` to `coms_list$comid` or just a list of comids. 
 mainstemsUS <- map(coms_list, ~navigate_nldi(nldi_feature = .x,
@@ -531,6 +725,9 @@ mainstemsUS <- map(coms_list, ~navigate_nldi(nldi_feature = .x,
 # check length (for NAs?)
 mainstemsUS %>%
   purrr::map_lgl(~ length(.x)>1) %>% table()
+
+# transform the sf layer to match mainstems crs (4326)
+all_gages_h12_sel <- all_gages_h12_sel %>% st_transform(4326)
 
 # drop NA/empty elements
 mainstemsUS_c <- mainstemsUS %>% purrr::compact()
@@ -541,10 +738,77 @@ mainstemsUS_c <- mainstemsUS %>% purrr::compact()
 
 mainstems_flat_us <- map_df(mainstemsUS_c, ~mutate(.x$UM_flowlines, comid_origin=.x$origin$comid, .after=nhdplus_comid))
 
-head(mainstems_us)
+head(mainstems_flat_us)
 
 length(unique(mainstems_flat_us$nhdplus_comid)) ## 518
 length(unique(mainstems_flat_us$comid_origin)) ## 129
+
+
+# check weird data --------------------------------------------------------
+
+head(all_gages_h12_sel)
+## missing gage = 	8246412 - G59, 	1668277 - S11
+
+## gage with missing flowlines example
+missingG <- all_gages_h12_sel %>%
+  filter(ID %in% c("G59"))
+missingG
+
+?navigate_nldi
+
+## find in flow lines df
+
+missingF <- mainstems_us %>%
+  filter(nhdplus_comid == 8246412)
+
+missingF
+
+## plot
+mapview(missingF) + mapview(missingG) 
+st_crs(missingF)
+
+## same comid in 2 differet places????
+
+mainstems_us <- st_transform(mainstems_us, crs=3310)
+
+## good gage = G64 	8234580
+
+GoodG <- all_gages_h12_sel %>%
+  filter(ID %in% c("G64"))
+GoodG
+
+GoodF <- mainstems_us %>%
+  filter(nhdplus_comid == 8234580)
+GoodF
+
+mapview(checkF) + mapview(GoodG) ### different comids same location??
+st_crs(GoodF)
+
+checkF <- mainstems_us %>%
+  filter(nhdplus_comid == 	8287274)
+
+checkF
+
+## additional flow lines - comid origin 	8287552, 	1669177
+
+checkF <- mainstems_us %>%
+  filter(nhdplus_comid == 8287552)
+
+checkG <- all_gages_h12_sel %>%
+  filter(COMID %in% c(8287552))
+checkG
+checkF
+
+mapview(checkF) + mapview(checkG) +mapview(checkH)
+
+checkH <- h12 %>%
+  filter(HUC_12 == 180102120401)
+
+checkH
+
+### looks like the COMID for flow lines are messed up, or the lat long for flowlines are messed up
+
+# -------------------------------------------------------------------------
 
 
 
@@ -561,13 +825,15 @@ length(unique(mainstems_us$comid_origin)) ## 129
 # rm temp files
 rm(mainstems_flat_us, mainstemsUS)
 
+st_crs(mainstems_us)
+
 # this map of all sites in same HUC 12
 m1 <- mapview(mainstems_us, color = "navyblue") + mapview(all_bugs_gages_huc, cex=6, col.regions="orange",
               layer.name="Bugs Stations") +
-  mapview(all_cal_gages_h12_sel, col.regions="skyblue", cex=2, color="blue2",
-          layer.name="USGS Gages") + 
-  mapview(all_algae_gages_h12, col.regions="green", cex=6,
-          layer.name="Algae Stations") +
+  # mapview(all_cal_gages_h12_sel, col.regions="skyblue", cex=2, color="blue2",
+  #         layer.name="USGS Gages") + 
+  # mapview(all_algae_gages_h12, col.regions="green", cex=6,
+  #         layer.name="Algae Stations") +
   # mapview(algae_gages_h12_algae_cds, col.regions="green", cex=6,
   #         layer.name="Algae Stations Local") +
   # mapview(bugs_gages_h12_bug_cds, col.regions="orange", cex=6,
@@ -575,9 +841,9 @@ m1 <- mapview(mainstems_us, color = "navyblue") + mapview(all_bugs_gages_huc, ce
   mapview(h12, col.regions="dodgerblue", alpha.region=0.1,
           color="darkblue", legend=FALSE, layer.name="HUC12") +
   mapview(all_gages_h12_sel, col.regions="red", cex=2, color="red",
-          layer.name="Gages Local") +
-  mapview(nc_fin_h12, col.regions="purple", cex=2, color="purple",
-          layer.name="Transect Survey Sites") 
+          layer.name="Gages Local") #+
+  # mapview(nc_fin_h12, col.regions="purple", cex=2, color="purple",
+  #         layer.name="Transect Survey Sites") 
 
 
 m1@map %>% leaflet::addMeasure(primaryLengthUnit = "meters")
