@@ -162,6 +162,7 @@ algae_segs <- algae %>%
   distinct(masterid, longitude, latitude) %>% 
   st_as_sf(coords=c("longitude", "latitude"),  crs=4326, remove=F)
 
+str(algae_segs)
 # use nhdtools to get comids
 algae_all_coms <- algae_segs %>%
   group_split(masterid) %>%
@@ -190,7 +191,6 @@ gage_segs <- all_gages %>%
   rename(latitude = gagelat, longitude = gagelong) %>%
   st_as_sf(coords=c("longitude", "latitude"),  crs=4326, remove=F)
 
-gage_segs
 
 # use nhdtools to get comids
 gage_all_coms <- gage_segs %>%
@@ -198,36 +198,88 @@ gage_all_coms <- gage_segs %>%
   set_names(., gage_segs$ID) %>%
   map(~discover_nhdplus_id(.x$geometry))
 
-gage_all_coms
+### check COMIDs for some gages
+test <- gage_segs %>%
+  filter(ID %in% c("Tr5", "Tr6", "Tr7", "Tr8", "Tr9"))
+
+# Tr5
+# [1] 8272401
+# 
+# $Tr6
+# [1] 8273277
+# 
+# $Tr7
+# [1] 8272399
+# 
+# $Tr8
+# [1] 8272399
+# 
+# $Tr9
+# [1] 8245974
+
+test
 
 # flatten into single dataframe instead of list
 gage_segs_df <-gage_all_coms %>% flatten_dfc() %>% t() %>%
   as.data.frame() %>%
   rename("COMID"=V1) %>% rownames_to_column(var = "ID")
 
-all_gages <- full_join(all_gages, gage_segs_df, by =  "ID")
+gage_segs_df
 
-## cal gages - doesn't work but hs COMIDs - i think, will check
+## join with coordinates
+all_gages2 <- full_join(all_gages, gage_segs_df, by =  "ID")
+
+head(all_gages2)
+
+## check original coords
+test2 <- all_gages %>%
+  filter(ID %in% c("Tr5", "Tr6", "Tr7", "Tr8", "Tr9"))
+
+test2
+
+## test coords with COMIDs
+test3 <- all_gages2 %>%
+  filter(ID %in% c("Tr5", "Tr6", "Tr7", "Tr8", "Tr9"))
+
+## filter by COMIDs - all coords, gage IDs and COMIDs seem correct
+gage_com2 <- all_gages2 %>%
+  filter(COMID %in% c(test3$COMID))
+gage_com2
+
+## check COMIDs manually
+point <- sf::st_sfc(sf::st_point(c(-122.9687, 40.74361)), crs = 4326)
+point
+discover_nhdplus_id(point) ## different COMID???
+
+# test <- discover_nhdplus_id(point, raindrop = TRUE) ### provides flowlines
+# test
+# point <- sf::st_sfc(sf::st_point(c(-123.2762, 38.59671)), crs = 4326)
+# discover_nhdplus_id(point)
+
+## -122.1163889%20 37.50694444%2
+
+
+## cal gages - doesn't work for all - but has COMIDs 
 
 # # Create dataframe for looking up COMIDS (here use all stations)
-# cal_segs <- cal %>%
-#   dplyr::select(ID, gagelong, gagelat) %>%
-#   distinct(ID, gagelong, gagelat) %>% 
-#   rename(latitude = gagelat, longitude = gagelong) %>%
-#   st_as_sf(coords=c("longitude", "latitude"), crs=3310, remove=F)
-# 
-# # use nhdtools to get comids - doesn't work here!!!!
-# cal_all_coms <- cal_segs %>%
-#   group_split(ID) %>%
-#   set_names(., cal_segs$ID) %>%
-#   map(~discover_nhdplus_id(.x$geometry))
-# 
-# # flatten into single dataframe instead of list
-# cal_segs_df <-cal_all_coms %>% flatten_dfc() %>% t() %>%
-#   as.data.frame() %>%
-#   rename("COMID"=V1) %>% rownames_to_column(var = "ID")
+cal_segs <- cal %>%
+  dplyr::select(ID, gagelong, gagelat) %>%
+  distinct(ID, gagelong, gagelat) %>%
+  rename(latitude = gagelat, longitude = gagelong) %>%
+  st_as_sf(coords=c("longitude", "latitude"), crs=3310, remove=F)
 
-# cal <- full_join(cal, cal_segs_df, by =  "ID")
+# use nhdtools to get comids - doesn't work here!!!!
+cal_all_coms <- cal_segs %>%
+  group_split(ID) %>%
+  set_names(., cal_segs$ID) %>%
+  map(~discover_nhdplus_id(.x$geometry))
+
+# flatten into single dataframe instead of list
+cal_segs_df <-cal_all_coms %>% flatten_dfc() %>% t() %>%
+  as.data.frame() %>%
+  rename("COMID"=V1) %>% rownames_to_column(var = "ID")
+
+cal <- full_join(cal, cal_segs_df, by =  "ID")
 
 ## transect suveys
 nc_fin
@@ -697,6 +749,7 @@ all_algae_gages_h12 <- st_read("output_data/02_algae_sites_same_huc_as_gages.shp
 all_bugs_gages_huc <- st_read("output_data/02_bug_sites_same_huc_as_gages.shp") ## bug sites
 nc_fin_h12 <- st_read("output_data/02_transect_surveys_same_huc_as_gages_and_bio.shp") ## bug sites
 #
+h12
 
 ## TRANSFORM TO UTM datum for flowlines
 all_algae_gages_h12 <- st_transform(all_algae_gages_h12, crs=3310) # use CA Teale albs metric
@@ -704,6 +757,7 @@ all_bug_gages_h12 <- st_transform(all_bugs_gages_huc, crs=3310)
 nc_fin_h12 <- st_transform(nc_fin_h12, crs=3310)
 all_gages_h12_sel <- st_transform(all_gages_h12_sel, crs=3310)
 all_cal_gages_h12_sel <- st_transform(all_cal_gages_h12_sel, crs=3310)
+h12 <-  st_transform(h12, crs=3310)
 
 # use a list of comids to make a list to pass to the nhdplusTools function
 # first do gages, then see how many bio sites are on lines, then same with transects 
@@ -810,8 +864,6 @@ checkH
 
 # -------------------------------------------------------------------------
 
-
-
 # bind together
 mainstems_us <- sf::st_as_sf(mainstems_flat_us, use.names = TRUE, fill = TRUE)
 
@@ -826,6 +878,14 @@ length(unique(mainstems_us$comid_origin)) ## 129
 rm(mainstems_flat_us, mainstemsUS)
 
 st_crs(mainstems_us)
+
+# set background basemaps:
+basemapsList <- c("Esri.WorldTopoMap", "Esri.WorldImagery",
+                  "Esri.NatGeoWorldMap",
+                  "OpenTopoMap", "OpenStreetMap", 
+                  "CartoDB.Positron", "Stamen.TopOSMFeatures")
+
+mapviewOptions(basemaps=basemapsList, fgb = FALSE)
 
 # this map of all sites in same HUC 12
 m1 <- mapview(mainstems_us, color = "navyblue") + mapview(all_bugs_gages_huc, cex=6, col.regions="orange",
@@ -851,13 +911,13 @@ m1@map %>% leaflet::addMeasure(primaryLengthUnit = "meters")
 
 
 # preview
-mapview(mainstems_us) #+ 
-  mapview(sel_algae_gages_asci, cex=6, col.regions="orange", 
-          layer.name="Selected algae Stations") +  
-  mapview(sel_algae_gages_asci, cex=6, col.regions="orange", 
-          layer.name="Selected algae Stations") +  
-  mapview(sel_gages_algae, col.regions="skyblue", cex=7, color="blue2",
-          layer.name="Selected USGS Gages")
+# mapview(mainstems_us) + 
+#   mapview(sel_algae_gages_asci, cex=6, col.regions="orange", 
+#           layer.name="Selected algae Stations") +  
+#   mapview(sel_algae_gages_asci, cex=6, col.regions="orange", 
+#           layer.name="Selected algae Stations") +  
+#   mapview(sel_gages_algae, col.regions="skyblue", cex=7, color="blue2",
+#           layer.name="Selected USGS Gages")
 
 # save as both for now
 #save(mainstems_us, file = "data_output/03_selected_nhd_mainstems_gages_us.rda")
@@ -874,13 +934,23 @@ beep(2)
 mainstemsDS %>% 
   purrr::map_lgl(~ length(.x)>1) %>% table()
 
+# drop NA/empty elements
+mainstemsDS_c <- mainstemsDS %>% purrr::compact()
+# mainstemsDS_c
+
 # make a single flat layer
-mainstems_flat_ds <- mainstemsDS %>%
-  set_names(., sel_gages_algae$site_id) %>%
-  map2(sel_gages_algae$site_id, ~mutate(.x, gageID=.y))
+# this accesses each item in our list of items...nhdplus returns a list of 2 dataframes that include $UM_flowlines, $origin. 
+# the name UM_flowlines can change depending on the "mode" above (may be DS or DD_flowlines).
+
+mainstems_flat_ds <- map_df(mainstemsDS_c, ~mutate(.x$DM_flowlines, comid_origin=.x$origin$comid, .after=nhdplus_comid))
 
 # bind together
-mainstems_ds <- sf::st_as_sf(data.table::rbindlist(mainstems_flat_ds, use.names = TRUE, fill = TRUE))
+mainstems_ds <- sf::st_as_sf(mainstems_flat_ds, use.names = TRUE, fill = TRUE)
+
+head(mainstems_flat_us)
+
+length(unique(mainstems_flat_ds$nhdplus_comid)) ## 745
+length(unique(mainstems_flat_ds$comid_origin)) ## 129
 
 # add direction to gage col
 mainstems_ds <- mainstems_ds %>% 
@@ -888,11 +958,11 @@ mainstems_ds <- mainstems_ds %>%
 
 rm(mainstems_flat_ds, mainstemsDS)
 
-mapview(mainstems_us, color="yellow") + mapview(mainstems_ds, color="blue") +
-  mapview(sel_algae_gages_asci, cex=6, col.regions="orange", 
-          layer.name="Selected algae Stations") +  
-  mapview(sel_gages_algae, col.regions="skyblue", cex=7, color="blue2",
-          layer.name="Selected USGS Gages")
+# mapview(mainstems_us, color="yellow") + mapview(mainstems_ds, color="blue") +
+#   mapview(sel_algae_gages_asci, cex=6, col.regions="orange", 
+#           layer.name="Selected algae Stations") +  
+#   mapview(sel_gages_algae, col.regions="skyblue", cex=7, color="blue2",
+#           layer.name="Selected USGS Gages")
 
 
 # get diversions
@@ -905,13 +975,22 @@ beep(2)
 mainstemsDD %>% 
   purrr::map_lgl(~ length(.x)>1) %>% table()
 
+# drop NA/empty elements
+mainstemsDD_c <- mainstemsDD %>% purrr::compact()
+mainstemsDD_c
 # make a single flat layer
-mainstems_flat_dd <- mainstemsDD %>%
-  set_names(., sel_gages_algae$site_id) %>%
-  map2(sel_gages_algae$site_id, ~mutate(.x, gageID=.y))
+# this accesses each item in our list of items...nhdplus returns a list of 2 dataframes that include $UM_flowlines, $origin. 
+# the name UM_flowlines can change depending on the "mode" above (may be DS or DD_flowlines).
+
+mainstems_flat_dd <- map_df(mainstemsDD_c, ~mutate(.x$DD_flowlines, comid_origin=.x$origin$comid, .after=nhdplus_comid))
 
 # bind together
-mainstems_dd <- sf::st_as_sf(data.table::rbindlist(mainstems_flat_dd, use.names = TRUE, fill = TRUE))
+mainstems_dd <- sf::st_as_sf(mainstems_flat_dd, use.names = TRUE, fill = TRUE)
+
+head(mainstems_flat_dd)
+
+length(unique(mainstems_flat_dd$nhdplus_comid)) ## 807
+length(unique(mainstems_flat_dd$comid_origin)) ## 129
 
 # add direction to gage col
 mainstems_dd <- mainstems_dd %>% 
@@ -919,5 +998,248 @@ mainstems_dd <- mainstems_dd %>%
 
 rm(mainstems_flat_ds, mainstemsDS, mainstemsDD, mainstems_flat_dd)
 
+# set background basemaps:
+basemapsList <- c("Esri.WorldTopoMap", "Esri.WorldImagery",
+                  "Esri.NatGeoWorldMap",
+                  "OpenTopoMap", "OpenStreetMap", 
+                  "CartoDB.Positron", "Stamen.TopOSMFeatures")
 
+mapviewOptions(basemaps=basemapsList, fgb = FALSE)
+
+# this map of all sites in same HUC 12
+m1 <-  
+  mapview(mainstems_us, color = "navyblue") +
+  mapview(mainstems_ds, color = "pink") +
+  # mapview(mainstems_dd, color = "black") +
+  mapview(all_bugs_gages_huc, cex=6, col.regions="orange",layer.name="Bugs Stations") +
+  # mapview(all_cal_gages_h12_sel, col.regions="skyblue", cex=2, color="blue2",
+  #         layer.name="USGS Gages") + 
+  # mapview(all_algae_gages_h12, col.regions="green", cex=6,
+  #         layer.name="Algae Stations") +
+  # mapview(algae_gages_h12_algae_cds, col.regions="green", cex=6,
+  #         layer.name="Algae Stations Local") +
+  # mapview(bugs_gages_h12_bug_cds, col.regions="orange", cex=6,
+  #         layer.name="Bugs Stations Local") +
+  mapview(h12, col.regions="dodgerblue", alpha.region=0.1,
+          color="darkblue", legend=FALSE, layer.name="HUC12") +
+  mapview(all_gages_h12_sel, col.regions="red", cex=2, color="red",
+          layer.name="Gages Local") #+
+# mapview(nc_fin_h12, col.regions="purple", cex=2, color="purple",
+#         layer.name="Transect Survey Sites") 
+
+
+m1@map %>% leaflet::addMeasure(primaryLengthUnit = "meters")
+
+### save out
+st_write(mainstems_us, "output_data/02_upstream_flowlines_from_gage.shp", append=FALSE)
+st_write(mainstems_ds, "output_data/02_downstream_flowlines_from_gage.shp", append=FALSE)
+
+# Checking comids for all points and lines --------------------------------
+
+mainstems_us <- st_read("output_data/02_upstream_flowlines_from_gage.shp")
+mainstems_ds <- st_read("output_data/02_downstream_flowlines_from_gage.shp")
+
+
+head(mainstems_us) # upstream lines from gage
+head(mainstems_ds) # downstream lines from gage
+
+h12 <- st_read( "output_data/02_h12_selected.shp") ## h12s with gages and bio
+all_gages_h12_sel <- st_read("output_data/02_local_gages_sites_same_huc_as_bio.shp") ## local gages 
+all_cal_gages_h12_sel <- st_read("output_data/02_cali_gages_sites_same_huc_as_bio.shp") ## cali gages
+all_algae_gages_h12 <- st_read("output_data/02_algae_sites_same_huc_as_gages.shp") ## algae sites
+all_bugs_gages_huc <- st_read("output_data/02_bug_sites_same_huc_as_gages.shp") ## bug sites
+nc_fin_h12 <- st_read("output_data/02_transect_surveys_same_huc_as_gages_and_bio.shp") ## bug sites
+
+## check crs
+st_crs(mainstems_us) == st_crs(all_gages_h12_sel)
+st_crs(mainstems_us) == st_crs(all_cal_gages_h12_sel)
+st_crs(mainstems_us) == st_crs(all_algae_gages_h12)
+st_crs(mainstems_us) == st_crs(all_bugs_gages_huc)
+
+## upload corrected flow lines
+
+cali_nhd <- st_read("/Users/katieirving/SCCWRP/Staff - Data/KatherineIrving/FromAnnie/NHD_Plus_CA/NHDPlus_V2_Flowline_CA.shp")
+
+head(cali_nhd_df)
+
+## change comid names
+cali_nhd_df <- cali_nhd %>%
+  # rename(COMID2 = COMID)
+  as.data.frame()
+
+head(mainstems_us)
+
+## check and change crs
+st_crs(cali_nhd) == st_crs(mainstems_us)
+mainstems_us <- st_transform(mainstems_us, crs=4269)
+
+## join spatially
+
+join_lines <- st_join(mainstems_us, cali_nhd)
+names(join_lines)
+
+join_lines <- join_lines %>%
+  select(nhdpls_:from_gg, Permanent_, COMID) ## COMIDs don't match
+
+### map
+
+# set background basemaps:
+basemapsList <- c("Esri.WorldTopoMap", "Esri.WorldImagery",
+                  "Esri.NatGeoWorldMap",
+                  "OpenTopoMap", "OpenStreetMap", 
+                  "CartoDB.Positron", "Stamen.TopOSMFeatures")
+
+mapviewOptions(basemaps=basemapsList, fgb = FALSE)
+
+# this map of nhd
+m1 <-  mapview(join_lines, color = "navyblue") #+
+  mapview(mainstems_ds, color = "pink") 
+
+m1@map %>% leaflet::addMeasure(primaryLengthUnit = "meters")
+
+## join by COMID - get new geometry 
+
+mainstems_us_df <- mainstems_us %>%
+  rename(COMID = nhdpls_) %>%
+  as.data.frame()
+
+class(mainstems_us_df)
+
+join_comids <- left_join(mainstems_us_df, cali_nhd_df, by="COMID")
+names(join_comids)
+## separate df out into old and new geomtry
+
+orig_geom <- join_comids %>%
+  select(COMID:geometry.x) %>%
+  rename(geometry = geometry.x) %>%
+  st_as_sf(crs=4326, remove=F)
+
+head(orig_geom)
+
+corr_comids <-join_comids %>%
+  select(COMID, Permanent_, geometry.y)  %>%
+  rename(geometry = geometry.y) %>%
+  st_as_sf(crs=4326, remove=F)
+  
+# check on map
+# set background basemaps:
+basemapsList <- c("Esri.WorldTopoMap", "Esri.WorldImagery",
+                  "Esri.NatGeoWorldMap",
+                  "OpenTopoMap", "OpenStreetMap", 
+                  "CartoDB.Positron", "Stamen.TopOSMFeatures")
+
+mapviewOptions(basemaps=basemapsList, fgb = FALSE)
+
+m1 <-  mapview(orig_geom, color = "navyblue") +
+mapview(corr_comids, color = "pink") 
+
+m1@map %>% leaflet::addMeasure(primaryLengthUnit = "meters") ## mainstems match nhd flowlines
+
+
+### try matching new comids to gages
+
+head(all_gages_h12_sel)
+
+length(unique(all_gages_h12_sel$ID))
+
+all_gages_h12_sel_df <- all_gages_h12_sel %>%
+  mutate(COMID = as.character(COMID)) %>%
+  as.data.frame()
+
+
+join_lines_df <- join_lines %>%
+  mutate(COMID = as.character(COMID)) %>%
+  as.data.frame()
+
+join_lines_df
+
+gage_cor_comids <- left_join(all_gages_h12_sel_df, join_lines_df, by = "COMID")
+names(gage_cor_comids)
+## separate df out into old and new geomtry
+
+orig_geom <- gage_cor_comids %>%
+  select(Name:geometry.x) %>%
+  rename(geometry = geometry.x) %>%
+  st_as_sf(crs=4326, remove=F)
+
+head(orig_geom)
+
+corr_geom <-gage_cor_comids %>%
+  select(nhdpls_:geometry.y)  %>%
+  rename(geometry = geometry.y) %>%
+  st_as_sf(crs=4326, remove=F)
+
+head(corr_geom) ## Permanent_ is COMID corrected
+
+m1 <-  mapview(orig_geom, color = "navyblue") +
+  mapview(corr_geom, color = "pink") 
+
+m1@map %>% leaflet::addMeasure(primaryLengthUnit = "meters")
+
+## feature ID 8 comid 1669141 - wrong on gage?
+
+## subset 1669141 from gages and lines
+
+gage_com <- all_gages_h12_sel %>%
+  filter(COMID == 1669141)
+
+names(mainstems_us)
+mainstems_com <- mainstems_us %>%
+  filter(cmd_rgn == 1669141)
+
+nhd_df <- cali_nhd %>%
+  filter(COMID == 1669141)
+
+
+m1 <-  mapview(gage_com, color = "navyblue") +
+  mapview(mainstems_com, color = "pink") 
+
+m1@map %>% leaflet::addMeasure(primaryLengthUnit = "meters")
+## in different places
+
+### get flowlines using lat lon points?
+
+## try joining
+
+str(cali_nhd_df)
+
+gage_com_df <- gage_com %>%
+  mutate(COMID = as.character(COMID)) %>%
+  as.data.frame()
+
+gage_nhd_df <- left_join(gage_com_df, cali_nhd_df, by = "COMID")
+
+gage_nhd_df
+
+## check and change CRS
+st_crs(gage_com)
+st_crs(cali_nhd)
+
+gage_com<- st_transform(gage_com, crs=4269)
+gage_nhd <- st_join(gage_com, cali_nhd)
+
+gage_com ## coords and gages with COMID 1669141
+
+## use coords to check COMID
+point <- sf::st_sfc(sf::st_point(c(-122.965, 38.59671)), crs = 4326)
+discover_nhdplus_id(point) ### 8272391 is the COMID for these coords
+discover_nhdplus_id(point, raindrop = TRUE)
+
+## subset comid from gages and lines
+
+gage_com <- all_gages_h12_sel %>%
+  filter(COMID == 8272391)
+gage_com
+names(mainstems_us)
+mainstems_com <- mainstems_us %>%
+  filter(cmd_rgn == 8272391)
+
+nhd_df <- cali_nhd %>%
+  filter(COMID == 8272391)
+
+
+m1 <-  mapview(mainstems_com, color = "navyblue") +
+  mapview(nhd_df, color = "pink") + mapview(gage_com, color = "red")
+
+m1@map %>% leaflet::addMeasure(primaryLengthUnit = "meters")
 
