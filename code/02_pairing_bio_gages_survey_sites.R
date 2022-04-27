@@ -18,9 +18,266 @@ library(nhdplusTools)
 # b - 3km downstream
 
 
-# Upload shapefiles -------------------------------------------------------------------------
+# Checking mismatch of gage and flowlines ---------------------------------
 
-sf::sf_use_s2(FALSE) ## switch off spherical geom
+# sf::sf_use_s2(FALSE) ## switch off spherical geom
+
+test_gage <- st_read("output_data/test_gages.shp") ## gage to test. this was chosen as points didn't match flowlines below 
+
+test_gage <- test_gage %>%
+  rename(COMID_Original = COMID)
+
+## get COMID
+# Create dataframe for looking up COMIDS
+gage_segs <- test_gage %>%
+  dplyr::select(ID, gagelong, gagelat) %>%
+  distinct(ID, gagelong, gagelat) %>% as.data.frame() %>% 
+  rename(latitude = gagelat, longitude = gagelong) %>%
+  st_as_sf(coords=c("longitude", "latitude"),  crs=4326, remove=F)
+
+gage_segs
+# use nhdtools to get comids
+gage_all_coms <- gage_segs %>%
+  group_split(ID) %>%
+  set_names(., gage_segs$ID) %>%
+  map(~discover_nhdplus_id(.x$geometry))
+
+
+# flatten into single dataframe instead of list
+gage_segs_df <-gage_all_coms %>% flatten_dfc() %>% t() %>%
+  as.data.frame() %>%
+  rename("COMID"=V1) %>% rownames_to_column(var = "ID")
+
+gage_segs_df
+
+## join with coordinates
+test_gage2 <- full_join(test_gage, gage_segs_df, by =  "ID")
+test_gage2 ## new comids are different?? WTF?? - does not have Z geom!!!
+
+# Use the gage com_list
+coms_list <- map(test_gage2$COMID, ~list(featureSource = "COMID", featureID=.x))
+# coms_list <- na.omit(coms_list)
+coms_list 
+
+
+# Get upstream mainstem streamlines (10 km limit) from gages
+# coms_list can be a dataframe (then may need to change `coms_list` to `coms_list$comid` or just a list of comids. 
+mainstemsUS <- map(coms_list, ~navigate_nldi(nldi_feature = .x,
+                                             mode="UM", # upstream main
+                                             distance_km = 10))
+
+testFL <- mainstemsUS[[1]]
+testFL$origin$geometry
+testFL$origin$comid
+
+# check length (for NAs?)
+mainstemsUS %>%
+  purrr::map_lgl(~ length(.x)>1) %>% table()
+
+
+# drop NA/empty elements
+mainstemsUS_c <- mainstemsUS %>% purrr::compact()
+# testList <- mainstemsUS_c[172]
+
+# testList
+class(mainstemsUS_c)
+# make a single flat layer
+# this accesses each item in our list of items...nhdplus returns a list of 2 dataframes that include $UM_flowlines, $origin. 
+# the name UM_flowlines can change depending on the "mode" above (may be DS or DD_flowlines).
+
+mainstems_flat_us <- map_df(mainstemsUS_c, ~mutate(.x$UM_flowlines, comid_origin=.x$origin$comid, .after=nhdplus_comid))
+
+# set background basemaps:
+basemapsList <- c("Esri.WorldTopoMap", "Esri.WorldImagery",
+                  "Esri.NatGeoWorldMap",
+                  "OpenTopoMap", "OpenStreetMap", 
+                  "CartoDB.Positron", "Stamen.TopOSMFeatures")
+
+mapviewOptions(basemaps=basemapsList, fgb = FALSE)
+
+# this map of nhd
+m1 <-  mapview(test_gage2, color = "navyblue") +
+mapview(mainstems_flat_us, color = "pink") 
+
+m1@map %>% leaflet::addMeasure(primaryLengthUnit = "meters") ### it matches!!!
+
+## try wfrom original gage df
+
+all_gages <- readRDS("output_data/02_all_gages_combined.rds")
+
+all_gages <- all_gages %>% 
+  filter(ID %in% test_gage2$ID)
+all_gages
+
+## get COMID
+# Create dataframe for looking up COMIDS
+gage_segs <- all_gages %>%
+  dplyr::select(ID, gagelong, gagelat) %>%
+  distinct(ID, gagelong, gagelat) %>% as.data.frame() %>% 
+  rename(latitude = gagelat, longitude = gagelong) %>%
+  st_as_sf(coords=c("longitude", "latitude"),  crs=4326, remove=F)
+
+gage_segs
+# use nhdtools to get comids
+gage_all_coms <- gage_segs %>%
+  group_split(ID) %>%
+  set_names(., gage_segs$ID) %>%
+  map(~discover_nhdplus_id(.x$geometry))
+
+
+# flatten into single dataframe instead of list
+gage_segs_df <-gage_all_coms %>% flatten_dfc() %>% t() %>%
+  as.data.frame() %>%
+  rename("COMID"=V1) %>% rownames_to_column(var = "ID")
+
+gage_segs_df
+
+## join with coordinates
+test_gage2 <- full_join(all_gages, gage_segs_df, by =  "ID")
+test_gage2 ## new comids are different?? WTF?? 
+
+# Use the gage com_list
+coms_list <- map(test_gage2$COMID, ~list(featureSource = "COMID", featureID=.x))
+# coms_list <- na.omit(coms_list)
+coms_list 
+
+
+# Get upstream mainstem streamlines (10 km limit) from gages
+# coms_list can be a dataframe (then may need to change `coms_list` to `coms_list$comid` or just a list of comids. 
+mainstemsUS <- map(coms_list, ~navigate_nldi(nldi_feature = .x,
+                                             mode="UM", # upstream main
+                                             distance_km = 10))
+
+testFL <- mainstemsUS[[1]]
+testFL$origin$geometry
+testFL$origin$comid
+
+# check length (for NAs?)
+mainstemsUS %>%
+  purrr::map_lgl(~ length(.x)>1) %>% table()
+
+
+# drop NA/empty elements
+mainstemsUS_c <- mainstemsUS %>% purrr::compact()
+# testList <- mainstemsUS_c[172]
+
+# testList
+class(mainstemsUS_c)
+# make a single flat layer
+# this accesses each item in our list of items...nhdplus returns a list of 2 dataframes that include $UM_flowlines, $origin. 
+# the name UM_flowlines can change depending on the "mode" above (may be DS or DD_flowlines).
+
+mainstems_flat_us <- map_df(mainstemsUS_c, ~mutate(.x$UM_flowlines, comid_origin=.x$origin$comid, .after=nhdplus_comid))
+
+# set background basemaps:
+basemapsList <- c("Esri.WorldTopoMap", "Esri.WorldImagery",
+                  "Esri.NatGeoWorldMap",
+                  "OpenTopoMap", "OpenStreetMap", 
+                  "CartoDB.Positron", "Stamen.TopOSMFeatures")
+
+mapviewOptions(basemaps=basemapsList, fgb = FALSE)
+
+# this map of nhd
+m1 <-  mapview(test_gage2, color = "navyblue") +
+  mapview(mainstems_flat_us, color = "pink") 
+
+m1@map %>% leaflet::addMeasure(primaryLengthUnit = "meters") ### it matches!!! has Z geom
+
+## try with all gages
+
+all_gages <- readRDS("output_data/02_all_gages_combined.rds")
+
+all_gages <- all_gages %>%
+  filter(!ID == "R90") ## this might be the error one, remove to check - it was the error but it didn't make any difference
+
+## get COMID
+# Create dataframe for looking up COMIDS (here use all stations)
+gage_segs <- all_gages %>%
+  dplyr::select(ID, gagelong, gagelat) %>%
+  distinct(ID, gagelong, gagelat) %>% as.data.frame() %>% 
+  rename(latitude = gagelat, longitude = gagelong) %>%
+  st_as_sf(coords=c("longitude", "latitude"),  crs=4326, remove=F)
+
+# gage_segs[300,] ## R90
+# use nhdtools to get comids
+gage_all_coms <- gage_segs %>%
+  group_split(ID) %>%
+  set_names(., gage_segs$ID) %>%
+  map(~discover_nhdplus_id(.x$geometry))
+gage_all_coms
+## error 28-122.1163889%2037.50694444%29FALSE
+
+# flatten into single dataframe instead of list
+gage_segs_df <-gage_all_coms %>% flatten_dfc() %>% t() %>%
+  as.data.frame() %>%
+  rename("COMID"=V1) %>% rownames_to_column(var = "ID")
+
+sum(is.na(gage_segs_df))
+
+## join with coordinates
+test_gage2 <- full_join(all_gages, gage_segs_df, by =  "ID")
+test_gage2 ## 
+
+# Use the gage com_list
+coms_list <- map(test_gage2$COMID, ~list(featureSource = "COMID", featureID=.x))
+# coms_list <- na.omit(coms_list)
+coms_list 
+
+
+# Get upstream mainstem streamlines (10 km limit) from gages
+# coms_list can be a dataframe (then may need to change `coms_list` to `coms_list$comid` or just a list of comids. 
+mainstemsUS <- map(coms_list, ~navigate_nldi(nldi_feature = .x,
+                                             mode="UM", # upstream main
+                                             distance_km = 10))
+
+
+# check length (for NAs?)
+mainstemsUS %>%
+  purrr::map_lgl(~ length(.x)>1) %>% table()
+
+
+# drop NA/empty elements
+mainstemsUS_c <- mainstemsUS %>% purrr::compact()
+# testList <- mainstemsUS_c[172]
+
+# testList
+class(mainstemsUS_c)
+# make a single flat layer
+# this accesses each item in our list of items...nhdplus returns a list of 2 dataframes that include $UM_flowlines, $origin. 
+# the name UM_flowlines can change depending on the "mode" above (may be DS or DD_flowlines).
+
+mainstems_flat_us <- map_df(mainstemsUS_c, ~mutate(.x$UM_flowlines, comid_origin=.x$origin$comid, .after=nhdplus_comid))
+
+# set background basemaps:
+basemapsList <- c("Esri.WorldTopoMap", "Esri.WorldImagery",
+                  "Esri.NatGeoWorldMap",
+                  "OpenTopoMap", "OpenStreetMap", 
+                  "CartoDB.Positron", "Stamen.TopOSMFeatures")
+
+mapviewOptions(basemaps=basemapsList, fgb = FALSE)
+
+# this map of nhd
+m1 <-  mapview(test_gage2, color = "navyblue") +
+  mapview(mainstems_flat_us, color = "pink") 
+
+m1@map %>% leaflet::addMeasure(primaryLengthUnit = "meters") ### these don't match
+
+## check with original wrong comid
+test_gage2
+test_gage ## 8246412
+test_gage2x <- test_gage2 %>%
+  filter(COMID == 8246412)
+
+test_gage2x
+
+# this map of nhd
+m1 <-  mapview(test_gage2x, color = "navyblue") +
+  mapview(mainstems_flat_us, color = "pink") 
+
+m1@map %>% leaflet::addMeasure(primaryLengthUnit = "meters") ### these don't match
+
+
+# Upload shapefiles -------------------------------------------------------------------------
 
 ## bio
 bugs <- st_read("ignore/Web_GIS_Cannabis/bioassessment_sites/00_bug_sites_all.shp")
@@ -191,16 +448,60 @@ gage_segs <- all_gages %>%
   rename(latitude = gagelat, longitude = gagelong) %>%
   st_as_sf(coords=c("longitude", "latitude"),  crs=4326, remove=F)
 
-
+gage_segs
 # use nhdtools to get comids
 gage_all_coms <- gage_segs %>%
   group_split(ID) %>%
   set_names(., gage_segs$ID) %>%
   map(~discover_nhdplus_id(.x$geometry))
 
+
+# flatten into single dataframe instead of list
+gage_segs_df <-gage_all_coms %>% flatten_dfc() %>% t() %>%
+  as.data.frame() %>%
+  rename("COMID"=V1) %>% rownames_to_column(var = "ID")
+
+gage_segs_df
+
+## join with coordinates
+all_gages2 <- full_join(all_gages, gage_segs_df, by =  "ID")
+## join with gage segs??
+head(all_gages2)
+
+# checking ----------------------------------------------------------------
+
 ### check COMIDs for some gages
 test <- gage_segs %>%
   filter(ID %in% c("Tr5", "Tr6", "Tr7", "Tr8", "Tr9"))
+
+test
+
+## check original coords
+test2 <- all_gages %>%
+  filter(ID %in% c("Tr5", "Tr6", "Tr7", "Tr8", "Tr9"))
+
+test2
+
+## test coords with COMIDs
+test3 <- all_gages2 %>%
+  filter(ID %in% c("Tr5", "Tr6", "Tr7", "Tr8", "Tr9"))
+test3
+## filter by COMIDs - all coords, gage IDs and COMIDs seem correct
+gage_com2 <- all_gages2 %>%
+  filter(COMID %in% c(test3$COMID))
+gage_com2
+
+## check COMIDs manually
+point <- sf::st_sfc(sf::st_point(c(-122.9143, 40.65494)), crs = 4326)
+point
+discover_nhdplus_id(point) ## different COMID???
+
+# test <- discover_nhdplus_id(point, raindrop = TRUE) ### provides flowlines
+# test
+# point <- sf::st_sfc(sf::st_point(c(-123.2762, 38.59671)), crs = 4326)
+# discover_nhdplus_id(point)
+
+## -122.1163889%20 37.50694444%2
 
 # Tr5
 # [1] 8272401
@@ -218,46 +519,109 @@ test <- gage_segs %>%
 # [1] 8245974
 
 test
+test_gage <- all_gages %>%
+  filter(ID %in% c("Tr5", "Tr6"))
+
+test_gage
+
+# Create dataframe for looking up COMIDS (here use all stations)
+test_gage_segs <- all_gages %>%
+  dplyr::select(ID, gagelong, gagelat) %>%
+  distinct(ID, gagelong, gagelat) %>% as.data.frame() %>% 
+  rename(latitude = gagelat, longitude = gagelong) %>%
+  st_as_sf(coords=c("longitude", "latitude"),  crs=4326, remove=F)
+
+test_gage_segs
+# use nhdtools to get comids
+test_gage_all_coms <- test_gage_segs %>%
+  group_split(ID) %>%
+  set_names(., test_gage_segs$ID) %>%
+  map(~discover_nhdplus_id(.x$geometry))
+
+test_gage_all_coms
 
 # flatten into single dataframe instead of list
-gage_segs_df <-gage_all_coms %>% flatten_dfc() %>% t() %>%
+test_gage_segs_df <-test_gage_all_coms %>% flatten_dfc() %>% t() %>%
   as.data.frame() %>%
   rename("COMID"=V1) %>% rownames_to_column(var = "ID")
 
-gage_segs_df
+test_gage_segs_df
 
 ## join with coordinates
-all_gages2 <- full_join(all_gages, gage_segs_df, by =  "ID")
+test_all_gages <- full_join(all_gages, test_gage_segs_df, by =  "ID")
+## join with gage segs??
+head(test_all_gages)
 
-head(all_gages2)
-
-## check original coords
-test2 <- all_gages %>%
-  filter(ID %in% c("Tr5", "Tr6", "Tr7", "Tr8", "Tr9"))
-
-test2
-
-## test coords with COMIDs
-test3 <- all_gages2 %>%
-  filter(ID %in% c("Tr5", "Tr6", "Tr7", "Tr8", "Tr9"))
-
-## filter by COMIDs - all coords, gage IDs and COMIDs seem correct
-gage_com2 <- all_gages2 %>%
-  filter(COMID %in% c(test3$COMID))
-gage_com2
+## join with coordinates
+test_all_gages2 <- full_join(test_gage_segs, test_gage_segs_df, by =  "ID")
+## join with gage segs??
+head(test_all_gages2)
 
 ## check COMIDs manually
-point <- sf::st_sfc(sf::st_point(c(-122.9687, 40.74361)), crs = 4326)
+point <- sf::st_sfc(sf::st_point(c(-122.965, 38.59671)), crs = 4326)
 point
-discover_nhdplus_id(point) ## different COMID???
+discover_nhdplus_id(point) ## COMIDs match
 
-# test <- discover_nhdplus_id(point, raindrop = TRUE) ### provides flowlines
-# test
-# point <- sf::st_sfc(sf::st_point(c(-123.2762, 38.59671)), crs = 4326)
-# discover_nhdplus_id(point)
+## check COMIDs manually
+point <- sf::st_sfc(sf::st_point(c(-122.7936, 40.59209)), crs = 4326)
+point
+discover_nhdplus_id(point) ## COMIDs match
 
-## -122.1163889%20 37.50694444%2
+test_all_gages2 <-  st_transform(test_all_gages2, crs=3310)
 
+# use a list of comids to make a list to pass to the nhdplusTools function
+# first do gages, then see how many bio sites are on lines, then same with transects 
+names(all_gages_h12_sel)
+
+# Use the gage com_list
+coms_list <- map(test_all_gages2$COMID, ~list(featureSource = "COMID", featureID=.x))
+# coms_list <- na.omit(coms_list)
+coms_list
+
+
+# Get upstream mainstem streamlines (10 km limit) from gages
+# coms_list can be a dataframe (then may need to change `coms_list` to `coms_list$comid` or just a list of comids. 
+mainstemsUS <- map(coms_list, ~navigate_nldi(nldi_feature = .x,
+                                             mode="UM", # upstream main
+                                             distance_km = 10))
+# check length (for NAs?)
+mainstemsUS %>%
+  purrr::map_lgl(~ length(.x)>1) %>% table()
+
+# transform the sf layer to match mainstems crs (4326)
+test_all_gages <- test_all_gages %>% st_transform(4326)
+
+# drop NA/empty elements
+mainstemsUS_c <- mainstemsUS %>% purrr::compact()
+
+# make a single flat layer
+# this accesses each item in our list of items...nhdplus returns a list of 2 dataframes that include $UM_flowlines, $origin. 
+# the name UM_flowlines can change depending on the "mode" above (may be DS or DD_flowlines).
+
+mainstems_flat_us <- map_df(mainstemsUS_c, ~mutate(.x$UM_flowlines, comid_origin=.x$origin$comid, .after=nhdplus_comid))
+
+head(mainstems_flat_us)
+
+length(unique(mainstems_flat_us$nhdplus_comid)) ## 518
+length(unique(mainstems_flat_us$comid_origin)) ## 129
+
+# set background basemaps:
+basemapsList <- c("Esri.WorldTopoMap", "Esri.WorldImagery",
+                  "Esri.NatGeoWorldMap",
+                  "OpenTopoMap", "OpenStreetMap", 
+                  "CartoDB.Positron", "Stamen.TopOSMFeatures")
+
+mapviewOptions(basemaps=basemapsList, fgb = FALSE)
+
+
+m1 <-  mapview(mainstems_flat_us, color = "navyblue") +
+  # mapview(nhd_df, color = "pink") + 
+  mapview(test_all_gages2, color = "red")
+
+m1@map %>% leaflet::addMeasure(primaryLengthUnit = "meters")
+
+
+# -------------------------------------------------------------------------
 
 ## cal gages - doesn't work for all - but has COMIDs 
 
@@ -309,11 +673,10 @@ nc_fin
 
 # Add HUC -----------------------------------------------------------------
 
-
 ## add HUC
 head(h12)
 # Add H12 to  Gages (adds ATTRIBUTES, retains ALL pts if left=TRUE), using algae DISTINCT STATIONS
-all_gages_h12 <- st_join(all_gages,left = TRUE, h12[c("HUC_12")])
+all_gages_h12 <- st_join(all_gages2,left = TRUE, h12[c("HUC_12")])
 all_gages_h12
 
 ## same with CAL gages
@@ -460,8 +823,6 @@ all_bio_paird <- bind_rows(algae_sites_paired, bugs_sites_paired)
 #   group_by(Bio, HUC_12) 
   
 
-
-
 ## gages with Bio - identifier is ID
 head(all_algae_gages_h12)
 
@@ -503,6 +864,7 @@ HUCs_sel <- c(unique(algae_cal_gages_h12$HUC_12),
 
 length(unique(HUCs_sel)) ## 108
 
+## filter HUCs with bio
 h12 <- h12 %>%
   filter(HUC_12 %in% HUCs_sel)
 
@@ -766,16 +1128,48 @@ names(all_gages_h12_sel)
 # Use the gage com_list
 coms_list <- map(all_gages_h12_sel$COMID, ~list(featureSource = "COMID", featureID=.x))
 # coms_list <- na.omit(coms_list)
-coms_list
-# check
-coms_list[[100]] # should list feature source and featureID
+coms_list <- coms_list[172]
 
+# check
+coms_list[1] # should list feature source and featureID
+
+test_gage <- all_gages_h12_sel %>%
+  filter(COMID == 8246412)
+
+st_write(test_gage, "output_data/test_gages.shp",append=FALSE)
+test_gage$ID
+class(test_gage)
 
 # Get upstream mainstem streamlines (10 km limit) from gages
 # coms_list can be a dataframe (then may need to change `coms_list` to `coms_list$comid` or just a list of comids. 
 mainstemsUS <- map(coms_list, ~navigate_nldi(nldi_feature = .x,
                                              mode="UM", # upstream main
-                                             distance_km = 10))
+                                            distance_km = 10))
+
+testFL <- mainstemsUS[[1]]
+testFL$origin$geometry
+testFL$origin$comid
+
+### coords of same comid don't match here
+
+## upload corrected flow lines and get comid from there
+
+cali_nhd <- st_read("/Users/katieirving/SCCWRP/Staff - Data/KatherineIrving/FromAnnie/NHD_Plus_CA/NHDPlus_V2_Flowline_CA.shp")
+
+head(cali_nhd)
+st_crs(cali_nhd)
+
+cali_nhd <- st_zm(cali_nhd)
+
+test_nhd <- cali_nhd %>%
+  filter(COMID == 8246412)
+test_nhd ## these coords match flowlines but not gage
+
+## join nhd reaches using gage coords
+test_gage <- st_transform(test_gage, crs = st_crs(cali_nhd))
+
+test_nhd_gage <- st_join(test_gage, cali_nhd)
+test_nhd_gage
 # check length (for NAs?)
 mainstemsUS %>%
   purrr::map_lgl(~ length(.x)>1) %>% table()
@@ -785,17 +1179,41 @@ all_gages_h12_sel <- all_gages_h12_sel %>% st_transform(4326)
 
 # drop NA/empty elements
 mainstemsUS_c <- mainstemsUS %>% purrr::compact()
+# testList <- mainstemsUS_c[172]
 
+# testList
+class(mainstemsUS_c)
 # make a single flat layer
 # this accesses each item in our list of items...nhdplus returns a list of 2 dataframes that include $UM_flowlines, $origin. 
 # the name UM_flowlines can change depending on the "mode" above (may be DS or DD_flowlines).
 
 mainstems_flat_us <- map_df(mainstemsUS_c, ~mutate(.x$UM_flowlines, comid_origin=.x$origin$comid, .after=nhdplus_comid))
-
+?map_df
 head(mainstems_flat_us)
 
 length(unique(mainstems_flat_us$nhdplus_comid)) ## 518
 length(unique(mainstems_flat_us$comid_origin)) ## 129
+
+# test <- data.frame(matrix(unlist(testList),ncol=3,byrow=F))
+# test
+### add geometry from gage comids
+
+st_crs(all_gages_h12_sel)
+st_crs(mainstems_flat_us)
+
+all_gages_h12_sel_df <- all_gages_h12_sel %>%
+  as.data.frame() %>% select(-geometry) %>%
+  mutate(COMID = as.character(COMID))
+
+head(all_gages_h12_sel_df)
+
+### spatial join
+
+lines_gages <- st_join(all_gages_h12_sel, mainstems_flat_us)
+lines_gages ## doesn't join
+
+## manual join
+lines_gages_df <- full_join(all_gages_h12_sel_df, as.data.frame(mainstems_flat_us), by = c("COMID"= "comid_origin"))
 
 
 # check weird data --------------------------------------------------------
@@ -1229,11 +1647,12 @@ discover_nhdplus_id(point, raindrop = TRUE)
 
 gage_com <- all_gages_h12_sel %>%
   filter(COMID == 8272391)
-gage_com
+st_crs(gage_com)
+mainstems_us <- st_transform(mainstems_us, crs = 4326)
 names(mainstems_us)
 mainstems_com <- mainstems_us %>%
   filter(cmd_rgn == 8272391)
-
+nhd_df <- st_transform(nhd_df, crs = 4326)
 nhd_df <- cali_nhd %>%
   filter(COMID == 8272391)
 
