@@ -173,7 +173,7 @@ INNER JOIN unified_algae ON lu_stations.stationid = unified_algae.stationcode")
 alg_tax_ca <- tbl(con, sql(alg_tax_sql_ca)) %>% 
   as_tibble()
 
-save(alg_tax_ca, file="input_data/SMC_algae_cali.csv")
+save(alg_tax_ca, file="input_data/SMC_algae_cali.RData")
 
 
 
