@@ -90,7 +90,10 @@ bug_tax_ca <- tbl(con, sql(bug_tax_sql_ca)) %>%
   as_tibble() 
 
 save(bug_tax_ca, file="input_data/SMC_bmi_cali.csv")
+load(file = "input_data/SMC_bmi_cali.csv")
+head(bug_tax_ca)
 
+## do we have expected vs observed species?
 
 # ----------------------------------------- BUG capture prob DATA ---------------------------------------
 
