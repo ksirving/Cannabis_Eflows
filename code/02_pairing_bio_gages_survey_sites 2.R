@@ -561,7 +561,9 @@ all_cal_gages_h12_sel <- all_cal_gages_h12_sel %>%
   mutate(COMID = as.integer(COMID))
 
 all_gages_h12_sel2 <- bind_rows(all_gages_h12_sel, all_cal_gages_h12_sel)
+head(all_gages_h12_sel2)
 
+st_write(all_gages_h12_sel2, "output_data/02_selected_gages_may132022.shp")
 # Use the gage com_list
 coms_list <- map(all_gages_h12_sel2$COMID, ~list(featureSource = "COMID", featureID=.x))
 coms_list
