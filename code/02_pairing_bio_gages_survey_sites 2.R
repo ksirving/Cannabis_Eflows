@@ -34,6 +34,7 @@ cal <- st_read("ignore/Web_GIS_Cannabis/CSWRCB_StreamGages/CaliforniaStreamGages
 
 TU
 cal
+names(cal)
 GU <- st_read("ignore/Web_GIS_Cannabis/Gauges_updated_SWRCB.shp")
 Otrin <- st_read("ignore/Web_GIS_Cannabis/Ongoing Trinity monitoring sites_SWRCB.shp")
 
@@ -120,7 +121,7 @@ cal <- cal %>%
   mutate(gagelat = unlist(map(geometry,2)),
          gagelong = unlist(map(geometry,1)))
 
-
+cal
 
 ## save as shape
 write_rds(all_gages, "output_data/02_all_gages_combined.rds")
@@ -549,7 +550,7 @@ nc_fin_h12 <- st_transform(nc_fin_h12, crs=3310)
 all_gages_h12_sel <- st_transform(all_gages_h12_sel, crs=3310)
 all_cal_gages_h12_sel <- st_transform(all_cal_gages_h12_sel, crs=3310)
 h12 <-  st_transform(h12, crs=3310)
-
+all_cal_gages_h12_sel
 # use a list of comids to make a list to pass to the nhdplusTools function
 # first do gages, then see how many bio sites are on lines, then same with transects 
 names(all_gages_h12_sel)

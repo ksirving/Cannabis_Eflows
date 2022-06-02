@@ -95,6 +95,31 @@ head(bug_tax_ca)
 
 ## do we have expected vs observed species?
 
+
+# CSCI data pull ----------------------------------------------------------
+
+## stations pull
+lu_stations_ca <- tbl(con, sql("SELECT * FROM lu_stations")) %>% 
+  as_tibble() 
+head(lu_stations_ca)
+
+# run data query, pulling data into R environment/writing to tibble
+bug_csci_ca <- tbl(con, sql("SELECT * FROM analysis_csci_core")) %>% 
+  as_tibble() 
+head(bug_csci_ca)
+
+## example cross walk
+lu_bug_test <- bug_csci_ca %>%
+  inner_join(lu_stations_ca, by=c("stationcode"="stationid")) ## join with masterid to datasets
+
+### component metrics
+
+bug_oe_ca <- tbl(con, sql("SELECT * FROM analysis_csci_suppl1_oe")) %>%  ##analysis_csci_suppl1_mmi, analysis_csci_suppl1_grps, 
+  # analysis_csci_suppl2_mmi, analysis_csci_suppl2_oe, analysis_phab_ipi, analysis_phab_metrics
+  as_tibble() 
+head(bug_oe_ca)
+
+
 # ----------------------------------------- BUG capture prob DATA ---------------------------------------
 
 # calculated capture probabilities for OTUs are located in CSCI data tables (suppl1 oe)
@@ -178,7 +203,24 @@ alg_tax_ca <- tbl(con, sql(alg_tax_sql_ca)) %>%
 
 save(alg_tax_ca, file="input_data/SMC_algae_cali.RData")
 
+# ASCI data pull ----------------------------------------------------------
 
+## stations pull
+lu_stations_ca <- tbl(con, sql("SELECT * FROM lu_stations")) %>% 
+  as_tibble() 
+head(lu_stations_ca)
+
+
+# run data query, pulling data into R environment/writing to tibble
+alg_asci_ca <- tbl(con, sql("SELECT * FROM analysis_asci")) %>% 
+  as_tibble() 
+head(alg_asci_ca)
+
+## example cross walk
+lu_alg_test <- alg_asci_ca %>%
+  inner_join(lu_stations_ca, by=c("stationcode"="stationid")) ## join with masterid to datasets
+
+head(lu_alg_test)
 
 # ----------------------------------------- PHYSICAL HABITAT DATA ---------------------------------------
 
