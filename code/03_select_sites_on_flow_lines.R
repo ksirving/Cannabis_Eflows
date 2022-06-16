@@ -96,6 +96,11 @@ sel_bugs_coms_final %>% st_drop_geometry() %>% distinct(masterid) %>% tally() # 
 # distinct gages - bugs
 sel_bugs_coms_final %>% st_drop_geometry() %>% distinct(ID) %>% tally() # 282
 
+## save out
+
+st_write(sel_bugs_coms_final, "output_data/03_bug_sites_gages.shp")
+st_write(sel_algae_coms_final, "output_data/03_algae_sites_gages.shp")
+
 # FINAL MAP -------------------------------------------------------
 
 # create a final map of selected gages and algae + huc12 + flowlines
@@ -139,15 +144,12 @@ bug_hucs_selected <- h12 %>%
 bug_hucs_not_selected <- h12 %>% 
   filter(!HUC_12 %in% sel_bugs_coms_final$HUC_12)
 
-
-
-
 ## 
 mapviewOptions(fgb = FALSE)
 
-# this map of all sites selected U/S and D/S
+# this map of all sites selected U/S and D/S - algae
 m2 <- mapview(sel_algae_coms_final, cex=6, col.regions="orange", 
-              layer.name="Selected algae comids") +  
+              layer.name="Selected Algae Sites") +  
   mapview(mainstems_all, color="steelblue", cex=3, 
           layer.name="NHD Flowlines") +
   ## algae
@@ -162,18 +164,6 @@ m2 <- mapview(sel_algae_coms_final, cex=6, col.regions="orange",
           color="orange", legend=F, layer.name="Selected Algae HUC12") +
   mapview(algae_hucs_not_selected, col.regions="dodgerblue", alpha.region=0.1, 
           color="darkblue", legend=F, layer.name="Other Algae HUC12") +
-  ## bugs
-  # mapview(bug_gages_selected, col.regions="blue", cex=7, color="blue2",
-  #         layer.name="Selected Bug Gages") +
-  # # these are all algae or gages in same H12 but not selected
-  # mapview(bug_gages_not_selected, col.regions="darkblue", color="gray20",
-  #         cex=3.2, layer.name="Other Bug Gages") +
-  # mapview(bugs_not_selected, col.regions="green", color="gray20", cex=3.2,
-  #         layer.name="Other Bug Sites in H12") +
-  # mapview(bug_hucs_selected, col.regions="orange", alpha.region=0.1,
-  #         color="orange", legend=F, layer.name="Selected Bug HUC12 ") +
-  # mapview(bug_hucs_not_selected, col.regions="blue", alpha.region=0.1,
-  #         color="darkblue", legend=F, layer.name="Other Bug HUC12") +
   ## south fork eel and survey sites
   mapview(sfer, col.regions="red", alpha.region=0.1,
           color="darkblue", legend=FALSE, layer.name="South Fork Eel") +
@@ -184,5 +174,30 @@ m2@map %>% leaflet::addMeasure(primaryLengthUnit = "meters")
 
 # save this final map out as:"map_of_final_gages_algae_stations_all_gages"
 #mapshot(m2, url = paste0(here::here(),"/figs/03_map_of_final_algae_stations_gages_h12s.html"))
+
+# this map of all sites selected U/S and D/S - bugs
+m3 <- mapview(sel_bugs_coms_final, cex=6, col.regions="orange", 
+              layer.name="Selected Bug Sites") +
+  mapview(mainstems_all, color="steelblue", cex=3, 
+          layer.name="NHD Flowlines") +
+  ## bugs
+mapview(bug_gages_selected, col.regions="skyblue", cex=7, color="blue2",
+        layer.name="Selected Bug Gages") +
+# these are all algae or gages in same H12 but not selected
+mapview(bug_gages_not_selected, col.regions="slateblue", color="gray20",
+        cex=3.2, layer.name="Other Bug Gages") +
+mapview(bugs_not_selected, col.regions="green", color="gray20", cex=3.2,
+        layer.name="Other Bug Sites in H12") +
+mapview(bug_hucs_selected, col.regions="orange", alpha.region=0.1,
+        color="orange", legend=F, layer.name="Selected Bug HUC12 ") +
+mapview(bug_hucs_not_selected, col.regions="blue", alpha.region=0.1,
+        color="darkblue", legend=F, layer.name="Other Bug HUC12") +
+## south fork eel and survey sites
+mapview(sfer, col.regions="red", alpha.region=0.1,
+        color="darkblue", legend=FALSE, layer.name="South Fork Eel") +
+  mapview(nc_fin_h12, col.regions="purple", cex=2, color="purple",
+          layer.name="Transect Survey Sites")
+
+m3@map %>% leaflet::addMeasure(primaryLengthUnit = "meters")
 
 
