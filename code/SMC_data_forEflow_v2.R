@@ -108,6 +108,9 @@ bug_csci_ca <- tbl(con, sql("SELECT * FROM analysis_csci_core")) %>%
   as_tibble() 
 head(bug_csci_ca)
 
+object.size(bug_csci_ca)
+write.csv(bug_csci_ca, "ignore/csci_ca_scores.csv")
+
 ## example cross walk
 lu_bug_test <- bug_csci_ca %>%
   inner_join(lu_stations_ca, by=c("stationcode"="stationid")) ## join with masterid to datasets
@@ -215,6 +218,9 @@ head(lu_stations_ca)
 alg_asci_ca <- tbl(con, sql("SELECT * FROM analysis_asci")) %>% 
   as_tibble() 
 head(alg_asci_ca)
+
+object.size(alg_asci_ca)
+write.csv(alg_asci_ca, "ignore/asci_ca_scores.csv")
 
 ## example cross walk
 lu_alg_test <- alg_asci_ca %>%

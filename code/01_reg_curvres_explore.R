@@ -143,4 +143,193 @@ unique(sel_bio_sites$ID)
 
 delta_bio <- full_join(delta_med, sel_bio_sites, by = "ID")
 
+head(delta_bio)
+
+# Bio sites data ----------------------------------------------------------
+
+## upload all scores
+csciNC <- read.csv("ignore/csci_ca_scores.csv")
+asciNC <- read.csv("ignore/asci_ca_scores.csv")
+
+head(csciNC)
+head(asciNC)
+
+## format and filter to paired sites
+
+nocalBio <- unique(sel_bio_sites$masterid)
+
+csciNC <- csciNC %>%
+  select(stationcode, sampleyear, csci) %>%
+  filter(stationcode %in% nocalBio) %>%
+  rename(masterid = stationcode)
+
+
+unique(asciNC$assemblage)
+
+asciNC <- asciNC %>%
+  select(sampleid, stationcode, metric, result, sampledate, assemblage) %>%
+  filter(assemblage == "Hybrid", metric == "ASCI", stationcode %in% nocalBio) %>%
+  pivot_wider(names_from = metric, values_from = result) %>%
+  rename(masterid = stationcode) %>%
+  na.omit()
+
+head(asciNC)
+sum(is.na(asciNC))
+
+## change names to match delta data
+delta_bio <- delta_bio %>%
+  filter(FFM %in% c("d_ds_dur_ws", "d_ds_mag_50", "d_ds_mag_90", "d_ds_tim", "d_fa_mag", "d_fa_tim",
+                    "d_sp_dur","d_sp_mag","d_sp_tim","d_wet_bfl_dur","d_wet_bfl_mag_10", "d_wet_bfl_mag_50", "d_wet_tim")) %>%
+  mutate(hydro.endpoints = case_when(FFM == "d_ds_dur_ws" ~ "DS_Dur_WS",
+                                    FFM == "d_ds_mag_50" ~ "DS_Mag_50",
+                                    FFM == "d_ds_mag_90" ~ "DS_Mag_90",
+                                    FFM == "d_ds_tim" ~ "DS_Tim",
+                                    
+                                    FFM == "d_fa_mag" ~ "FA_Mag",
+                                    FFM == "d_fa_tim" ~ "FA_Tim",
+                                    
+                                    FFM == "d_sp_dur" ~ "SP_Dur",
+                                    FFM == "d_sp_mag" ~ "SP_Mag",
+                                    FFM == "d_sp_tim" ~ "SP_Tim",
+                                    
+                                    FFM == "d_wet_bfl_dur" ~ "Wet_BFL_Dur",
+                                    FFM == "d_wet_bfl_mag_10" ~ "Wet_BFL_Mag_10",
+                                    FFM == "d_wet_bfl_mag_50" ~ "Wet_BFL_Mag_50",
+                                    FFM == "d_wet_tim" ~ "Wet_Tim"))  
+
+
+## join to bio data to delta bio, scale and add +ve/-ve type
+
+library(scales)
+
+delta_asci <- delta_bio %>%
+  filter(Index == "ASCI") %>%
+  right_join(asciNC, by = "masterid") %>% na.omit() %>%
+  filter(ASCI <= 0.86) %>%
+  mutate(ResultScaled = rescale(ASCI, to = c(0, 1))) %>% 
+  mutate(Type = ifelse(MedDelta < 0, "Negative", "Positive"))
+
+head(delta_asci)
+
+
+delta_csci <- delta_bio %>%
+  filter(Index == "CSCI") %>%
+  right_join(csciNC , delta_bio, by = "masterid") %>% na.omit() %>%
+  group_by(hydro.endpoints) %>%
+  filter(csci <= 0.79) %>%
+  mutate(ResultScaled = rescale(csci, to = c(0, 1))) %>% 
+  mutate(Type = ifelse(MedDelta < 0, "Negative", "Positive"))
+  
+
+
+## scale scores to fit axis? no
+
+
+# visualise ---------------------------------------------------------------
+
+out.dir <- "/Users/katieirving/Documents/Documents - Katie’s MacBook Pro/git/Cannabis_Eflows/figures/"
+
+## make original curves
+## add points from nocal
+
+all_csci <- all_csci %>%
+  mutate(Thresholds = as.character(thresholds)) %>%
+  filter(thresholds == 0.79) 
+
+## define FFM to loop through
+HydroEnds <- unique(delta_csci$hydro.endpoints)
+
+HydroEnds
+m=12
+
+for(m in 1:length(HydroEnds)) {
+  
+  ## title of FFM
+  main.title <- all_csci %>%
+    ungroup() %>%
+    filter(hydro.endpoints == paste(HydroEnds[m])) %>%
+    select(Flow.Metric.Name) %>%
+    distinct(Flow.Metric.Name)
+  
+  ## subset data and put in order for geom.path
+  all_cscix <- subset(all_csci,hydro.endpoints == paste(HydroEnds[m]))
+  all_cscix <- all_cscix[order(all_cscix$PredictedProbabilityScaled, all_cscix$hydro),]
+  
+  ## subset NoCal data
+  delta_cscix <- subset(delta_csci, hydro.endpoints == paste(HydroEnds[m]))
+ 
+  
+  ## plot
+  q3 <- ggplot(all_cscix, aes(x=hydro, y=PredictedProbabilityScaled))+
+    geom_path()+
+    geom_point(data = delta_cscix, aes(x=MedDelta, y = ResultScaled, col = "red")) +
+    facet_wrap(~Type, scales = "free_x") +
+    theme(strip.background = element_blank(),
+          strip.text.y = element_blank()) +
+    scale_y_continuous()+
+    theme_minimal()+
+    theme(legend.position = "none") +
+    theme(text = element_text(size=15),axis.text.x = element_text(angle = 60,  vjust = 0.5, hjust=0.5)) +
+    labs(title = paste(main.title),
+         x = "Delta H",
+         y = "Probability of Good CSCI") #+ theme_bw(base_size = 15)
+  q3
+  
+  out.filename <- paste0(out.dir,"01_csci_", paste(HydroEnds[m]), "_0.79.jpg")
+  ggsave(q3, file = out.filename, dpi=300, height=4, width=6)
+  
+  
+}
+
+#### ASCI
+
+all_asci <- all_asci %>%
+  mutate(Thresholds = as.character(thresholds)) %>%
+  filter(thresholds == 0.86) 
+
+
+## define FFM to loop through
+HydroEnds <- unique(delta_csci$hydro.endpoints)
+
+HydroEnds
+m=12
+
+for(m in 1:length(HydroEnds)) {
+  
+  ## title of FFM
+  main.title <- all_asci %>%
+    ungroup() %>%
+    filter(hydro.endpoints == paste(HydroEnds[m])) %>%
+    select(Flow.Metric.Name) %>%
+    distinct(Flow.Metric.Name)
+  
+  ## subset data and put in order for geom.path
+  all_ascix <- subset(all_asci,hydro.endpoints == paste(HydroEnds[m]))
+  all_ascix <- all_ascix[order(all_ascix$PredictedProbabilityScaled, all_ascix$hydro),]
+  
+  ## subset NoCal data
+  delta_ascix <- subset(delta_asci, hydro.endpoints == paste(HydroEnds[m]))
+  
+  
+  ## plot
+  q3 <- ggplot(all_ascix, aes(x=hydro, y=PredictedProbabilityScaled))+
+    geom_path()+
+    geom_point(data = delta_ascix, aes(x=MedDelta, y = ResultScaled, col = "red")) +
+    facet_wrap(~Type, scales = "free_x") +
+    theme(strip.background = element_blank(),
+          strip.text.y = element_blank()) +
+    scale_y_continuous()+
+    theme_minimal()+
+    theme(legend.position = "none") +
+    theme(text = element_text(size=15),axis.text.x = element_text(angle = 60,  vjust = 0.5, hjust=0.5)) +
+    labs(title = paste(main.title),
+         x = "Delta H",
+         y = "Probability of Good ASCI") #+ theme_bw(base_size = 15)
+  q3
+  
+  out.filename <- paste0(out.dir,"01_asci_", paste(HydroEnds[m]), "_0.86.jpg")
+  ggsave(q3, file = out.filename, dpi=300, height=4, width=6)
+  
+  
+}
 
