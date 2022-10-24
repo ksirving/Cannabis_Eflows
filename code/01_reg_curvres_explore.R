@@ -80,7 +80,15 @@ all_asci <- all_asci %>%
 all_asci <- left_join(all_asci, labels, by ="hydro.endpoints")
 
 head(all_asci)
+unique(all_asci$hydro.endpoints)
 
+all_asci_sub <- all_asci %>%
+  filter(thresholds == 0.86)
+
+head(all_asci_sub)
+unique(all_asci_sub$Flow.Metric.Name)
+
+write.csv(all_asci_sub, "01_asci_SoCal_curve_data_v2.csv")
 
 # data CSCI ---------------------------------------------------------------
 
@@ -97,6 +105,13 @@ all_csci <- all_csci %>%
 all_csci <- left_join(all_csci, labels, by ="hydro.endpoints")
 
 head(all_csci)
+
+all_csci_sub <- all_csci %>%
+  filter(thresholds == 0.79)
+
+head(all_csci_sub)
+
+write.csv(all_csci_sub, "01_csci_SoCal_curve_data_v2.csv")
 
 
 # data Hydro --------------------------------------------------------------
@@ -203,9 +218,10 @@ delta_bio <- delta_bio %>%
 library(scales)
 
 delta_asci <- delta_bio %>%
+  ungroup() %>%
   filter(Index == "ASCI") %>%
   right_join(asciNC, by = "masterid") %>% na.omit() %>%
-  filter(ASCI <= 0.86) %>%
+  mutate(ASCI = ifelse(ASCI > 0.86, 0.86, ASCI)) %>%
   mutate(ResultScaled = rescale(ASCI, to = c(0, 1))) %>% 
   mutate(Type = ifelse(MedDelta < 0, "Negative", "Positive"))
 
@@ -213,10 +229,11 @@ head(delta_asci)
 
 
 delta_csci <- delta_bio %>%
+  ungroup() %>%
   filter(Index == "CSCI") %>%
   right_join(csciNC , delta_bio, by = "masterid") %>% na.omit() %>%
   group_by(hydro.endpoints) %>%
-  filter(csci <= 0.79) %>%
+  mutate(csci = ifelse(csci > 0.79, 0.79, csci)) %>%
   mutate(ResultScaled = rescale(csci, to = c(0, 1))) %>% 
   mutate(Type = ifelse(MedDelta < 0, "Negative", "Positive"))
   
@@ -240,6 +257,7 @@ all_csci <- all_csci %>%
 HydroEnds <- unique(delta_csci$hydro.endpoints)
 
 HydroEnds
+
 m=12
 
 for(m in 1:length(HydroEnds)) {

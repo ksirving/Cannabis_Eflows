@@ -153,6 +153,7 @@ bug_segs_df <-bug_all_coms %>% flatten_dfc() %>% t() %>%
   rename("COMID"=V1) %>% rownames_to_column(var = "masterid")
 
 bugs <- full_join(bugs, bug_segs_df, by = "masterid")
+head(bugs)
 
 # Create dataframe for looking up COMIDS (here use all stations)
 algae_segs <- algae %>%
@@ -178,6 +179,16 @@ algae_segs_df <-algae_all_coms %>% flatten_dfc() %>% t() %>%
   rename("COMID"=V1) %>% rownames_to_column(var = "masterid")
 
 algae <- full_join(algae, algae_segs_df, by =  "masterid")
+
+head(algae)
+
+algae$masterid %in% bugs$masterid
+
+bioData <- bind_rows(bugs, algae)
+bioData <- bioData %>% select(-Field1) %>% as.data.frame()
+dim(bioData)
+getwd()
+write.csv(bioData, "02_bio_sites_ids_comids_v2.csv")
 
 ## gages
 st_crs(all_gages)
@@ -541,7 +552,7 @@ all_algae_gages_h12 <- st_read("output_data/02_algae_sites_same_huc_as_gages.shp
 all_bugs_gages_huc <- st_read("output_data/02_bug_sites_same_huc_as_gages.shp") ## bug sites
 nc_fin_h12 <- st_read("output_data/02_transect_surveys_same_huc_as_gages_and_bio.shp") ## bug sites
 #
-h12
+class(h12)
 
 ## TRANSFORM TO UTM datum for flowlines
 all_algae_gages_h12 <- st_transform(all_algae_gages_h12, crs=3310) # use CA Teale albs metric
@@ -565,6 +576,9 @@ all_gages_h12_sel2 <- bind_rows(all_gages_h12_sel, all_cal_gages_h12_sel)
 head(all_gages_h12_sel2)
 
 st_write(all_gages_h12_sel2, "output_data/02_selected_gages_may132022.shp")
+
+data <- st_read("output_data/02_selected_gages_may132022.shp")
+head(data)
 # Use the gage com_list
 coms_list <- map(all_gages_h12_sel2$COMID, ~list(featureSource = "COMID", featureID=.x))
 coms_list
