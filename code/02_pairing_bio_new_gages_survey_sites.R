@@ -32,6 +32,13 @@ g2 <- read.csv("input_data/ca-actual-flows-eval-100.csv")
 g3 <- read.csv("input_data/ca-unimpaired-eval-55.csv")
 g4 <- read.csv("input_data/unimpaired-training-sites-in-ca.csv")
 head(g1)
+
+## define actual and unimpaired gages
+actualFlows <- c(g1$remote_id, g2$remote_id)
+actualFlows
+
+unimpaired <- c(g3$remote_id, g4$remote_id)
+unimpaired %in% actualFlows
 ## make spatial
 
 g1 <- g1 %>% dplyr:: select(-X) %>% st_as_sf(coords=c("Longitude", "Latitude"), crs=4326, remove=F)
@@ -467,7 +474,7 @@ mainstems_ds <- sf::st_as_sf(mainstems_flat_ds, use.names = TRUE, fill = TRUE)
 
 head(mainstems_flat_us)
 
-length(unique(mainstems_flat_ds$nhdplus_comid)) ## 214
+length(unique(mainstems_flat_ds$nhdplus_comid)) ## 376
 length(unique(mainstems_flat_ds$comid_origin)) ## 31
 
 # add direction to gage col
@@ -547,6 +554,44 @@ st_write(mainstems_us, "output_data/02_upstream_flowlines_from_gage_new_gages.sh
 st_write(mainstems_ds, "output_data/02_downstream_flowlines_from_gage_new_gages.shp", append=FALSE)
 st_write(mainstems_dd, "output_data/02_diversions_flowlines_from_gage_new_gages.shp", append=FALSE)
 
+# bind all mainstems
+mainstems_all <- rbind(mainstems_us, mainstems_ds, mainstems_dd)
+
+# get distinct segs only 
+mainstems_distinct <- mainstems_all %>% distinct(nhdplus_comid, .keep_all=TRUE)
+
+
+# Remove sites not on flow lines ------------------------------------------
+
+
+# all algae comids that occur in list of mainstem NHD comids:
+sel_algae_coms_final <- all_algae_gages_h12 %>% 
+  filter(COMID %in% mainstems_distinct$nhdplus_comid) %>%
+  mutate(Bio = "Algae")
+
+# all bug comids that occur in list of mainstem NHD comids:
+sel_bugs_coms_final <- all_bugs_gages_huc %>% 
+  filter(COMID %in% mainstems_distinct$nhdplus_comid) %>%
+  mutate(Bio = "Bugs")
+
+
+## join together
+
+sel_bio_sites_all <- bind_rows(sel_algae_coms_final, sel_bugs_coms_final)
+
+# distinct comid/station/gages combinations:
+sel_bio_sites_all %>% st_drop_geometry() %>% 
+  distinct(masterid, COMID, remote_id) %>% tally() # 53
+
+## remove coords and geom
+
+paired_gages <- sel_bio_sites_all %>%
+  st_drop_geometry() %>% select(-longitude, -latitude) %>%
+  mutate(FlowType = ifelse(remote_id %in% unimpaired, "Unimpaired", "Actual")) ## add unimpaired/actual flow
+
+length(unique(paired_gages$remote_id)) ## 24
+
+write.csv(paired_gages, "output_data/02_new_gages_paired_bio_10242022.csv")
 
 # Subset to SFER ----------------------------------------------------------
 
